@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Brainiac graph data (user-specific, not committed)
+graph/nodes.json
+graph/edges.json
+graph/embeddings.npz

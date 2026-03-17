@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "claude-brainiac"
+version = "0.1.0"
+description = "Graph-based self-learning memory system for Claude Code"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "sentence-transformers>=2.2.0",
+    "numpy>=1.24.0",
+]
+
+[project.scripts]
+brainiac = "brainiac.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Peaky8linders/claude-brainiac"
+Repository = "https://github.com/Peaky8linders/claude-brainiac"
