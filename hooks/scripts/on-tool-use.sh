@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# PostToolUse: Update graph with tool event (write/bash/read)
+# PostToolUse: Log tool event to session journal (async, no latency impact)
 set -euo pipefail
 
-PLUGIN_DATA="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/cortex-data}"
-mkdir -p "$PLUGIN_DATA"
+KNOWLEDGE_DIR="$HOME/.claude/knowledge"
+JOURNAL="$KNOWLEDGE_DIR/session-journal.jsonl"
+mkdir -p "$KNOWLEDGE_DIR"
 
 EVENT_TYPE="${1:-unknown}"
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Pipe stdin (hook event JSON) through the engine
-cat | node "$(dirname "$0")/../scripts/cortex-engine.js" ingest --type "$EVENT_TYPE" 2>>"$PLUGIN_DATA/cortex.log" || true
+# Append event to session journal (consumed by /learn at session end)
+echo "{\"type\":\"$EVENT_TYPE\",\"ts\":\"$TIMESTAMP\"}" >> "$JOURNAL" 2>/dev/null || true

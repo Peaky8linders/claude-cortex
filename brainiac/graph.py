@@ -215,5 +215,6 @@ class BrainiacGraph:
         existing = [n.id for n in self.nodes.values() if n.id.startswith(prefix + "-")]
         if not existing:
             return f"{prefix}-001"
-        max_num = max(int(nid.split("-")[1]) for nid in existing)
-        return f"{prefix}-{max_num + 1:03d}"
+        max_num = max(int(nid.split("-")[-1]) for nid in existing)
+        width = max(3, len(str(max_num + 1)))
+        return f"{prefix}-{max_num + 1:0{width}d}"
