@@ -1,0 +1,33 @@
+{
+  "name": "contextscore-cc",
+  "version": "0.1.0",
+  "description": "Context quality scoring and compaction guard for Claude Code",
+  "type": "module",
+  "main": "dist/core/index.js",
+  "types": "dist/core/index.d.ts",
+  "bin": {
+    "contextscore": "dist/cli/main.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
+    "test:watch": "vitest watch",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "claude-code",
+    "context-engineering",
+    "llm",
+    "token-optimization",
+    "compaction"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.4",
+    "vitest": "^1.6"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

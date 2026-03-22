@@ -1,0 +1,21 @@
+{
+  "name": "cortex-cc",
+  "version": "0.1.0",
+  "description": "Your Claude Code nervous system. Live knowledge graph, context intelligence, and optimization engine — plugs directly into Claude Code via hooks.",
+  "type": "module",
+  "main": "dist/engine/index.js",
+  "bin": { "cortex": "dist/cli.js" },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
+    "dev": "tsc --watch",
+    "install-hooks": "node dist/install.js"
+  },
+  "keywords": ["claude-code", "knowledge-graph", "context-engineering", "hooks", "observability", "optimization"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.4",
+    "vitest": "^1.6"
+  }
+}
