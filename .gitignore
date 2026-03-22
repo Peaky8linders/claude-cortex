@@ -210,3 +210,15 @@ __marimo__/
 graph/nodes.json
 graph/edges.json
 graph/embeddings.npz
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Cortex runtime data
+cortex-data/
+*.cortex/events/
+
+# TypeScript build outputs already committed as dist/ for portability
+# (uncomment if you prefer to build from source)
+# **/dist/

@@ -1,0 +1,83 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "startup|resume",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-session-start.sh",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Write|Edit|MultiEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-tool-use.sh write",
+          "async": true,
+          "timeout": 10
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-tool-use.sh bash",
+          "async": true,
+          "timeout": 10
+        }
+      ]
+    },
+    {
+      "matcher": "Read|Search",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-tool-use.sh read",
+          "async": true,
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PreCompact": [
+    {
+      "matcher": "auto|manual",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-pre-compact.sh",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PostCompact": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-post-compact.sh",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash hooks/scripts/on-stop.sh",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "cortex",
+  "version": "0.2.0",
+  "description": "Live knowledge graph, context intelligence, and optimization engine for Claude Code.",
+  "author": "Andrei",
+  "license": "MIT"
+}

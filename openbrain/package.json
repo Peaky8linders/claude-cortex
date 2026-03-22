@@ -1,0 +1,31 @@
+{
+  "name": "openbrain",
+  "version": "0.1.0",
+  "description": "Context intelligence autopilot — from raw thought to agent-ready spec. Breaks memory silos across AI tools via MCP + Postgres + pgvector.",
+  "type": "module",
+  "main": "dist/core/index.js",
+  "types": "dist/core/index.d.ts",
+  "bin": {
+    "openbrain": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
+    "dev": "tsc --watch",
+    "setup": "node dist/scripts/setup.js"
+  },
+  "keywords": [
+    "context-engineering", "open-brain", "mcp", "llm", "memory",
+    "specification-engineering", "agent", "autopilot", "pgvector"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.4",
+    "vitest": "^1.6"
+  },
+  "engines": { "node": ">=18" }
+}

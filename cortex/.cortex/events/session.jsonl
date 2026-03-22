@@ -1,0 +1,27 @@
+{"hook_event_name":"SessionStart","session_id":"andrei-session","model":"opus-4.6","source":"startup"}
+{"hook_event_name":"UserPromptSubmit","session_id":"andrei-session","tool_input":{"prompt":"Build OpenBrain based on specflow. Follow the Sequoia analysis strategy."}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Read","tool_input":{"file_path":"src/pipeline/transform.ts"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Read","tool_input":{"file_path":"src/core/types.ts"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Read","tool_input":{"file_path":"src/mcp/server.ts"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Read","tool_input":{"file_path":"src/cli.ts"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Read","tool_input":{"file_path":"tests/pipeline.test.ts"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"file_path":"src/pipeline/transform.ts","content":"// DECISION: Use [^.\\n]{10,120} instead of .{10,120}? to prevent catastrophic backtracking\n// DECISION: Normalize quality score with entity signal + decision signal - question penalty\nexport function extractContextGraph(thought) {"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"content":"// DECISION: Use [^.\\n]{10,120} instead of .{10,120}? to prevent catastrophic backtracking\n// DECISION: Normalize quality score with entity signal + decision signal - question penalty"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"file_path":"src/graph/knowledge-graph.ts","content":"// DECISION: Graph > event log — typed edges with centrality, clustering, temporal decay\nexport class KnowledgeGraph {"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"content":"// DECISION: Graph > event log — typed edges with centrality, clustering, temporal decay"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Bash","tool_input":{"command":"npx vitest run"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Bash","tool_response":{"stdout":"48 tests passed","stderr":""}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Bash","tool_input":{"command":"npx tsc"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Bash","tool_response":{"stdout":"","stderr":""}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Bash","tool_input":{"command":"chub get openai/chat --lang js"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Bash","tool_response":{"stdout":"# OpenAI Chat API\n## responses.create..."}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"file_path":"src/analyzer/chub-integration.ts","content":"// DECISION: Integrate Context Hub for API doc accuracy\nexport class ContextHubIntegration {"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Write","tool_input":{"content":"// DECISION: Integrate Context Hub for API doc accuracy"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Bash","tool_input":{"command":"npm test"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Bash","tool_response":{"stderr":"Error: Cannot find module '../analyzer/chub-integration.js'"}}
+{"hook_event_name":"PreToolUse","session_id":"andrei-session","tool_name":"Bash","tool_input":{"command":"npx tsc && npx vitest run"}}
+{"hook_event_name":"PostToolUse","session_id":"andrei-session","tool_name":"Bash","tool_response":{"stdout":"48 tests passed"}}
+{"hook_event_name":"SubagentStart","session_id":"andrei-session","agent_type":"Task"}
+{"hook_event_name":"SubagentStop","session_id":"andrei-session"}
+{"hook_event_name":"PostCompact","session_id":"andrei-session"}
+{"hook_event_name":"Stop","session_id":"andrei-session"}
