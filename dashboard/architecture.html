@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cortex — Claude Code Architecture Graph</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-type="module">
+    const { useState, useCallback, useMemo } = React;
+
+    // Embedded from claude_code_architecture_graph.jsx
+    const HOOK_EVENTS = [
+      { id: "setup", name: "Setup", desc: "Init/maintenance. Runs before SessionStart for first-time setup, dependency checks, onboarding.", phase: "session", x: 80, y: 60, color: "#64748b", handlers: ["command"], matcher: "init|maintenance", canBlock: false, example: "Check required tools exist, run npm install" },
+      { id: "session_start", name: "SessionStart", desc: "Fires when a session begins. Stdout becomes Claude's context. Set env vars via CLAUDE_ENV_FILE.", phase: "session", x: 80, y: 140, color: "#22c55e", handlers: ["command"], matcher: "startup|resume|clear|compact", canBlock: false, example: "Load git status, inject recent tickets, set NODE_ENV" },
+      { id: "user_prompt", name: "UserPromptSubmit", desc: "Fires when user submits a prompt. Can inject context, validate input, or block submission.", phase: "loop", x: 80, y: 260, color: "#3b82f6", handlers: ["command", "prompt"], matcher: null, canBlock: true, example: "Enrich prompt with project context, validate not empty" },
+      { id: "pre_tool", name: "PreToolUse", desc: "THE GATEKEEPER. Fires before any tool executes. Can ALLOW, DENY, or MODIFY the tool input. Exit code 2 = block.", phase: "tools", x: 300, y: 320, color: "#ef4444", handlers: ["command", "http", "prompt", "agent"], matcher: "Bash|Edit|Write|Read|Search|WebFetch|Task", canBlock: true, example: "Block rm -rf, protect .env files, validate commands" },
+      { id: "permission", name: "PermissionRequest", desc: "Fires when user would see a permission dialog. Auto-approve safe operations, block dangerous ones.", phase: "tools", x: 520, y: 320, color: "#f97316", handlers: ["command", "http"], matcher: "Bash|Edit|Write", canBlock: true, example: "Auto-approve npm test, block npm publish" },
+      { id: "post_tool", name: "PostToolUse", desc: "THE WORKHORSE. Fires after a tool succeeds. Auto-format, lint, run tests, log actions. Cannot undo.", phase: "tools", x: 520, y: 420, color: "#10b981", handlers: ["command", "http", "prompt", "agent"], matcher: "Write|Edit|MultiEdit|Bash", canBlock: false, example: "Run prettier, eslint --fix, pytest on changed files" },
+      { id: "post_tool_fail", name: "PostToolUseFailure", desc: "Fires when a tool fails. Error tracking, retry logic, alerting.", phase: "tools", x: 300, y: 420, color: "#dc2626", handlers: ["command", "http"], matcher: "Bash|Edit|Write", canBlock: false, example: "Log error to monitoring, notify Slack, attempt retry" },
+      { id: "subagent_start", name: "SubagentStart", desc: "Fires when a subagent is spawned via the Agent tool.", phase: "subagent", x: 700, y: 260, color: "#8b5cf6", handlers: ["command"], matcher: null, canBlock: false, example: "Log subagent creation, allocate resources" },
+      { id: "subagent_stop", name: "SubagentStop", desc: "Fires when a subagent completes. Validate output, run cleanup.", phase: "subagent", x: 700, y: 370, color: "#a855f7", handlers: ["command", "prompt", "agent"], matcher: null, canBlock: false, example: "Validate subagent output quality, merge results" },
+      { id: "notification", name: "Notification", desc: "Fires on system notifications (async). Route to Slack, desktop, or custom alerting.", phase: "loop", x: 700, y: 140, color: "#eab308", handlers: ["command", "http"], matcher: "permission_prompt|idle_prompt|auth_success", canBlock: false, example: "Send Slack message, desktop notification, log event" },
+      { id: "pre_compact", name: "PreCompact", desc: "Fires before context compaction. Last chance to snapshot critical context before it's summarized.", phase: "maintenance", x: 700, y: 480, color: "#f43f5e", handlers: ["command"], matcher: "manual|auto", canBlock: false, example: "Snapshot decisions, entities, file list to .claude/" },
+      { id: "post_compact", name: "PostCompact", desc: "Fires after compaction completes. Inject recovery context.", phase: "maintenance", x: 520, y: 540, color: "#fb923c", handlers: ["command"], matcher: null, canBlock: false, example: "Load snapshot, inject recovery context into session" },
+      { id: "stop", name: "Stop", desc: "Fires when Claude finishes responding. Exit code 2 forces Claude to keep working. Validate completion.", phase: "loop", x: 300, y: 540, color: "#06b6d4", handlers: ["command", "prompt", "agent"], matcher: null, canBlock: true, example: "Check tests pass before allowing stop, enforce todo completion" },
+      { id: "session_end", name: "SessionEnd", desc: "Session cleanup. Save logs, generate summaries, tear down resources.", phase: "session", x: 80, y: 540, color: "#475569", handlers: ["command"], matcher: "exit|sigint|error", canBlock: false, example: "Save session log, push metrics, cleanup temp files" },
+      { id: "teammate_idle", name: "TeammateIdle", desc: "Fires in Agent Teams when a teammate finishes and becomes idle.", phase: "subagent", x: 700, y: 60, color: "#7c3aed", handlers: ["command"], matcher: null, canBlock: false, example: "Assign next task to idle teammate" },
+      { id: "task_completed", name: "TaskCompleted", desc: "Fires when a task in the task queue is completed.", phase: "subagent", x: 520, y: 60, color: "#6366f1", handlers: ["command"], matcher: null, canBlock: false, example: "Update progress tracker, trigger next dependent task" },
+    ];
+
+    const CONNECTIONS = [
+      { from: "setup", to: "session_start", label: "init" },
+      { from: "session_start", to: "user_prompt", label: "ready" },
+      { from: "user_prompt", to: "pre_tool", label: "Claude processes" },
+      { from: "pre_tool", to: "permission", label: "allow?" },
+      { from: "permission", to: "post_tool", label: "execute", style: "success" },
+      { from: "permission", to: "post_tool_fail", label: "fail", style: "error" },
+      { from: "post_tool", to: "user_prompt", label: "next turn", style: "loop" },
+      { from: "post_tool_fail", to: "user_prompt", label: "retry", style: "error" },
+      { from: "pre_tool", to: "subagent_start", label: "spawn agent" },
+      { from: "subagent_start", to: "subagent_stop", label: "completes" },
+      { from: "subagent_stop", to: "post_tool", label: "return" },
+      { from: "post_tool", to: "stop", label: "done?" },
+      { from: "stop", to: "session_end", label: "exit" },
+      { from: "stop", to: "user_prompt", label: "continue (exit 2)", style: "loop" },
+      { from: "post_tool", to: "pre_compact", label: "context full" },
+      { from: "pre_compact", to: "post_compact", label: "summarize" },
+      { from: "post_compact", to: "user_prompt", label: "recovered", style: "loop" },
+      { from: "user_prompt", to: "notification", label: "async" },
+      { from: "task_completed", to: "teammate_idle", label: "next" },
+    ];
+
+    const PHASES = {
+      session: { label: "Session Lifecycle", color: "#22c55e" },
+      loop: { label: "Conversation Loop", color: "#3b82f6" },
+      tools: { label: "Tool Execution", color: "#ef4444" },
+      subagent: { label: "Multi-Agent", color: "#8b5cf6" },
+      maintenance: { label: "Maintenance", color: "#f43f5e" },
+    };
+
+    function App() {
+      const [selected, setSelected] = useState(null);
+      const selectedEvent = useMemo(() => HOOK_EVENTS.find(e => e.id === selected), [selected]);
+      const connectedIds = useMemo(() => {
+        if (!selected) return new Set();
+        const ids = new Set([selected]);
+        CONNECTIONS.forEach(c => { if (c.from === selected) ids.add(c.to); if (c.to === selected) ids.add(c.from); });
+        return ids;
+      }, [selected]);
+
+      return (
+        <div style={{ minHeight: "100vh", background: "#060a12", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#cbd5e1" }}>
+          <header style={{ padding: "16px 24px", borderBottom: "1px solid #1e293b", background: "#0a1020" }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Claude Code Architecture Graph</h1>
+            <p style={{ fontSize: 11, color: "#475569", margin: "4px 0 0" }}>16 hook events — click a node to inspect</p>
+          </header>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", minHeight: "calc(100vh - 60px)" }}>
+            <div style={{ padding: 16 }}>
+              <svg viewBox="0 0 820 610" style={{ width: "100%", height: "auto" }}>
+                <defs>
+                  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                  </marker>
+                </defs>
+                {Object.entries(PHASES).map(([key, phase]) => {
+                  const events = HOOK_EVENTS.filter(e => e.phase === key);
+                  if (!events.length) return null;
+                  const minX = Math.min(...events.map(e => e.x)) - 40;
+                  const minY = Math.min(...events.map(e => e.y)) - 30;
+                  const maxX = Math.max(...events.map(e => e.x)) + 40;
+                  const maxY = Math.max(...events.map(e => e.y)) + 40;
+                  return (<g key={key}>
+                    <rect x={minX} y={minY} width={maxX-minX} height={maxY-minY} rx={8} fill={`${phase.color}08`} stroke={`${phase.color}20`} strokeWidth={0.5}/>
+                    <text x={minX+6} y={minY+12} fill={`${phase.color}55`} fontSize={8} fontWeight={600}>{phase.label.toUpperCase()}</text>
+                  </g>);
+                })}
+                {CONNECTIONS.map((c, i) => {
+                  const f = HOOK_EVENTS.find(e => e.id === c.from), t = HOOK_EVENTS.find(e => e.id === c.to);
+                  if (!f || !t) return null;
+                  const dx = t.x-f.x, dy = t.y-f.y, d = Math.sqrt(dx*dx+dy*dy), off = 20;
+                  const color = c.style === "error" ? "#dc2626" : c.style === "loop" ? "#06b6d4" : c.style === "success" ? "#22c55e" : "#334155";
+                  const act = !selected || (connectedIds.has(c.from) && connectedIds.has(c.to));
+                  return (<line key={i} x1={f.x+(dx/d)*off} y1={f.y+(dy/d)*off} x2={t.x-(dx/d)*off} y2={t.y-(dy/d)*off}
+                    stroke={color} strokeWidth={act?1.2:0.5} opacity={act?0.6:0.15}
+                    strokeDasharray={c.style==="loop"?"4 4":c.style==="error"?"2 3":"none"} markerEnd="url(#arrow)"/>);
+                })}
+                {HOOK_EVENTS.map(ev => {
+                  const sz = ev.canBlock ? 18 : 14, isSel = selected === ev.id, act = !selected || connectedIds.has(ev.id);
+                  return (<g key={ev.id} onClick={() => setSelected(isSel ? null : ev.id)} style={{cursor:"pointer"}}>
+                    <circle cx={ev.x} cy={ev.y} r={sz} fill={isSel?ev.color:`${ev.color}22`} stroke={ev.color} strokeWidth={isSel?2.5:1.5} opacity={act?1:0.3}/>
+                    {ev.canBlock && <circle cx={ev.x} cy={ev.y} r={sz+3} fill="none" stroke={ev.color} strokeWidth={0.5} strokeDasharray="3 3" opacity={0.5}/>}
+                    <text x={ev.x} y={ev.y+sz+14} textAnchor="middle" fill={act?"#94a3b8":"#334155"} fontSize={9} fontWeight={isSel?600:400}>{ev.name}</text>
+                  </g>);
+                })}
+              </svg>
+            </div>
+            <div style={{ borderLeft: "1px solid #1e293b", padding: 20, background: "#080d17", overflow: "auto" }}>
+              {selectedEvent ? (<div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                  <div style={{width:12,height:12,borderRadius:"50%",background:selectedEvent.color}}/>
+                  <div style={{fontSize:14,fontWeight:700,color:"#f1f5f9"}}>{selectedEvent.name}</div>
+                </div>
+                <div style={{fontSize:11,color:"#94a3b8",lineHeight:1.7,marginBottom:16}}>{selectedEvent.desc}</div>
+                {selectedEvent.canBlock && <div style={{padding:8,borderRadius:6,background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.15)",marginBottom:12,fontSize:10,color:"#fca5a5"}}>CAN BLOCK — Exit code 2 denies the action</div>}
+                <div style={{fontSize:10,color:"#475569",marginBottom:4,fontWeight:600}}>HANDLERS</div>
+                <div style={{fontSize:11,color:"#f1f5f9",marginBottom:14}}>{selectedEvent.handlers.join(", ")}</div>
+                {selectedEvent.matcher && <><div style={{fontSize:10,color:"#475569",marginBottom:4,fontWeight:600}}>MATCHER</div><div style={{fontSize:11,color:"#f59e0b",marginBottom:14}}>{selectedEvent.matcher}</div></>}
+                <div style={{fontSize:10,color:"#475569",marginBottom:4,fontWeight:600}}>EXAMPLE</div>
+                <div style={{fontSize:11,color:"#a7f3d0",padding:10,background:"rgba(16,185,129,0.06)",borderRadius:6,lineHeight:1.6}}>{selectedEvent.example}</div>
+                <div style={{fontSize:10,color:"#475569",marginTop:14,marginBottom:4,fontWeight:600}}>PHASE</div>
+                <div style={{fontSize:11,color:PHASES[selectedEvent.phase]?.color}}>{PHASES[selectedEvent.phase]?.label}</div>
+              </div>) : (<div style={{textAlign:"center",paddingTop:40}}>
+                <div style={{fontSize:11,color:"#334155"}}>Click a node to inspect</div>
+                <div style={{fontSize:10,color:"#1e293b",marginTop:4}}>Dashed border = can block</div>
+                <div style={{marginTop:24,textAlign:"left"}}>
+                  {Object.entries(PHASES).map(([k,p]) => <div key={k} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><div style={{width:8,height:8,borderRadius:2,background:p.color}}/><span style={{fontSize:10,color:"#475569"}}>{p.label}</span></div>)}
+                </div>
+              </div>)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

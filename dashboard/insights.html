@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cortex — Session Knowledge Graph</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    const TYPES = {
+      product:  { color: "#06d6a0", icon: "\u25C6", label: "Product"  },
+      decision: { color: "#ffd166", icon: "\u25B2", label: "Decision" },
+      research: { color: "#118ab2", icon: "\u25C8", label: "Research" },
+      error:    { color: "#ef476f", icon: "\u25CF", label: "Bug Fix"  },
+      concept:  { color: "#f78c6b", icon: "\u25CE", label: "Concept"  },
+      tool:     { color: "#83c5be", icon: "\u2B21", label: "Tool"     },
+      person:   { color: "#b5838d", icon: "\u25C9", label: "Person"   },
+      metric:   { color: "#a7c957", icon: "\u25A3", label: "Metric"   },
+    };
+
+    const NODES = [
+      { id: "cs-py", name: "ContextScore Python", type: "product", w: 9, phase: 1, detail: "7 analyzers, 28 IssueCauses, HTTP API, React dashboard. 71 tests." },
+      { id: "cs-cc", name: "ContextScore Claude Code", type: "product", w: 8, phase: 2, detail: "TypeScript port, Smart Compaction Guard, snapshot/recovery. 41 tests." },
+      { id: "cortex", name: "Cortex", type: "product", w: 10, phase: 4, detail: "Knowledge graph engine, hook processor, Context Hub integration. 48 tests." },
+      { id: "brainiac", name: "Brainiac Engine", type: "product", w: 9, phase: 4, detail: "Python semantic graph with embeddings, auto-linking, multi-hop retrieval. 45 tests." },
+      { id: "hooks-graph", name: "Hooks Architecture", type: "product", w: 7, phase: 4, detail: "Interactive Claude Code lifecycle visualization. 16 events, 8 skills." },
+      { id: "d-coherence", name: "Coherence > capacity", type: "decision", w: 9, phase: 1, detail: "Core insight: 10M token window with bad context = expensive noise." },
+      { id: "d-single-engine", name: "Single graph engine", type: "decision", w: 9, phase: 4, detail: "Eng review: brainiac (Python) as single source of truth, not dual engines." },
+      { id: "d-hooks-cli", name: "Hooks call CLI directly", type: "decision", w: 8, phase: 4, detail: "Eng review: shell scripts call brainiac CLI, no Node.js wrapper needed." },
+      { id: "d-graph", name: "Graph > event log", type: "decision", w: 8, phase: 4, detail: "Cortex niche: knowledge graph with typed edges, not flat event streams." },
+      { id: "r-talisman", name: "Context Problem", type: "research", w: 7, phase: 1, detail: "Context as credence good. Context rot. 80% token reduction via graphs." },
+      { id: "r-sequoia", name: "Services as Software", type: "research", w: 8, phase: 1, detail: "Julien Bek. Intelligence vs judgement. Outsourced wedge to insourced TAM." },
+      { id: "r-reddit", name: "Claude Code Pain Points", type: "research", w: 7, phase: 2, detail: "500+ Reddit comments. #1 pain: dumber after compaction." },
+      { id: "c-ccs", name: "Coherence Score", type: "concept", w: 8, phase: 1, detail: "Weighted 0-100 across 7 dimensions. Letter grades A+ to F." },
+      { id: "c-compact", name: "Compaction Guard", type: "concept", w: 8, phase: 2, detail: "Snapshot before compaction. Auto-inject recovery after." },
+      { id: "m-tests", name: "232 Tests Pass", type: "metric", w: 5, phase: 5, detail: "71 + 41 + 48 + 45 + 27 = 232 total tests. All green." },
+    ];
+
+    const EDGES = [
+      { s:"cs-py",t:"cs-cc",label:"ported to",w:.9 },
+      { s:"cs-cc",t:"cortex",label:"evolved into",w:.8 },
+      { s:"brainiac",t:"cortex",label:"powers",w:.9 },
+      { s:"r-talisman",t:"d-coherence",label:"inspired",w:.9 },
+      { s:"r-reddit",t:"c-compact",label:"validated",w:.8 },
+      { s:"d-coherence",t:"cs-py",label:"drove",w:.8 },
+      { s:"d-single-engine",t:"brainiac",label:"designated",w:.9 },
+      { s:"d-hooks-cli",t:"brainiac",label:"wires to",w:.8 },
+      { s:"d-graph",t:"cortex",label:"defined",w:.9 },
+      { s:"c-ccs",t:"cs-py",label:"core metric",w:.9 },
+      { s:"c-compact",t:"cs-cc",label:"core feature",w:.9 },
+      { s:"m-tests",t:"cortex",label:"verified",w:.3 },
+      { s:"m-tests",t:"brainiac",label:"verified",w:.3 },
+    ];
+
+    const PHASES = [
+      { id:1, name:"Research & Python MVP" },
+      { id:2, name:"Claude Code Plugin" },
+      { id:4, name:"Cortex & Eng Review" },
+      { id:5, name:"Integration Complete" },
+    ];
+
+    const RECS = [
+      { type:"done", title:"Single graph engine decided", desc:"Brainiac (Python) is the single source of truth. No dual-engine confusion.", icon:"\u2705" },
+      { type:"done", title:"Hooks rewritten to CLI", desc:"All 5 hooks now call brainiac directly. No missing cortex-engine.js.", icon:"\u2705" },
+      { type:"done", title:"45 tests added for engine", desc:"Graph CRUD, edges, queries, persistence, embeddings, consolidation all tested.", icon:"\u2705" },
+      { type:"todo", title:"Rename brainiac to cortex", desc:"Unify branding. Package name, CLI, paths, CLAUDE.md references.", icon:"\uD83D\uDCC5" },
+    ];
+
+    function App() {
+      const [sel, setSel] = useState(null);
+      const [view, setView] = useState("graph");
+      const selN = NODES.find(n => n.id === sel);
+      const deg = useMemo(() => { const c = {}; EDGES.forEach(e => { c[e.s]=(c[e.s]||0)+1; c[e.t]=(c[e.t]||0)+1; }); return c; }, []);
+      const conn = useMemo(() => { if (!sel) return new Set(); const s = new Set([sel]); EDGES.forEach(e => { if(e.s===sel)s.add(e.t); if(e.t===sel)s.add(e.s); }); return s; }, [sel]);
+
+      // Simple grid layout
+      const positions = useMemo(() => {
+        const m = new Map();
+        const cols = Math.ceil(Math.sqrt(NODES.length));
+        NODES.forEach((n, i) => { m.set(n.id, { x: 80 + (i % cols) * 160, y: 60 + Math.floor(i / cols) * 120 }); });
+        return m;
+      }, []);
+      const gp = id => positions.get(id) || {x:400,y:250};
+
+      return (
+        <div style={{minHeight:"100vh",background:"#05070e",fontFamily:"'Segoe UI',system-ui,sans-serif",color:"#b0bec5"}}>
+          <div style={{padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #111827"}}>
+            <div>
+              <span style={{fontWeight:700,fontSize:14,color:"#e2e8f0"}}>CORTEX</span>
+              <span style={{fontSize:9,color:"#475569",marginLeft:8}}>SESSION KNOWLEDGE GRAPH</span>
+            </div>
+            <div style={{display:"flex",gap:2,background:"#0d1117",borderRadius:6,padding:2,border:"1px solid #1e293b"}}>
+              {[{k:"graph",l:"Graph"},{k:"timeline",l:"Timeline"},{k:"recs",l:"Insights"}].map(v=>
+                <button key={v.k} onClick={()=>{setView(v.k);setSel(null)}} style={{
+                  background:view===v.k?"#1e293b":"transparent",border:"none",borderRadius:4,
+                  padding:"4px 14px",fontSize:10,color:view===v.k?"#f1f5f9":"#64748b",
+                  cursor:"pointer",fontFamily:"inherit"}}>{v.l}</button>)}
+            </div>
+          </div>
+
+          <div style={{padding:"8px 20px",display:"flex",gap:16,borderBottom:"1px solid #0d1117",background:"#080c16"}}>
+            {[{v:"232",l:"Tests",c:"#06d6a0",s:" pass"},{v:NODES.length,l:"Nodes",c:"#83c5be",s:""},{v:EDGES.length,l:"Edges",c:"#b5838d",s:""},{v:"5",l:"Products",c:"#06d6a0",s:" core"}].map((s,i)=>
+              <div key={i} style={{textAlign:"center"}}>
+                <div style={{fontSize:13,fontWeight:500,color:s.c}}>{s.v}<span style={{fontSize:9,color:"#475569"}}>{s.s}</span></div>
+                <div style={{fontSize:8,color:"#334155"}}>{s.l.toUpperCase()}</div>
+              </div>)}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 280px",height:"calc(100vh - 88px)"}}>
+            <div style={{position:"relative",overflow:"auto",padding:16}}>
+              {view==="graph" && <svg viewBox="0 0 720 500" style={{width:"100%",height:"auto"}}>
+                {EDGES.map((e,i)=>{const a=gp(e.s),b=gp(e.t);const act=!sel||(conn.has(e.s)&&conn.has(e.t));const col=TYPES[NODES.find(n=>n.id===e.s)?.type||"concept"]?.color||"#334155";
+                  return(<line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={col} strokeWidth={act?1.2:.3} opacity={act?.4:.1}/>);})}
+                {NODES.map(n=>{const p=gp(n.id),cfg=TYPES[n.type],act=!sel||conn.has(n.id),isSel=sel===n.id,r=4+n.w*1.5;
+                  return(<g key={n.id} onClick={()=>setSel(isSel?null:n.id)} style={{cursor:"pointer"}}>
+                    <circle cx={p.x} cy={p.y} r={r} fill={isSel?cfg.color:`${cfg.color}22`} stroke={cfg.color} strokeWidth={isSel?2.5:1} opacity={act?1:.2}/>
+                    <text x={p.x} y={p.y+r+12} textAnchor="middle" fill={act?"#94a3b8":"#1e293b"} fontSize={8}>{n.name.length>20?n.name.slice(0,18)+"...":n.name}</text>
+                  </g>);})}
+              </svg>}
+
+              {view==="timeline" && <div>{PHASES.map(ph=>{const pn=NODES.filter(n=>n.phase===ph.id);return(
+                <div key={ph.id} style={{marginBottom:20}}>
+                  <div style={{fontSize:11,fontWeight:500,color:"#e2e8f0",marginBottom:8}}>Phase {ph.id}: {ph.name} ({pn.length} nodes)</div>
+                  <div style={{marginLeft:14,borderLeft:"1px solid #1e293b",paddingLeft:16}}>
+                    {pn.map(n=>{const cfg=TYPES[n.type];return(<div key={n.id} onClick={()=>{setView("graph");setSel(n.id)}}
+                      style={{padding:"6px 8px",borderRadius:6,cursor:"pointer",marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{color:cfg.color,fontSize:9}}>{cfg.icon}</span>
+                      <span style={{fontSize:10,color:"#94a3b8",flex:1}}>{n.name}</span>
+                      <span style={{fontSize:8,color:cfg.color,opacity:.6}}>{cfg.label}</span>
+                    </div>);})}
+                  </div></div>)})}</div>}
+
+              {view==="recs" && <div>
+                <div style={{fontSize:12,fontWeight:600,color:"#e2e8f0",marginBottom:16}}>Eng Review Outcomes</div>
+                {RECS.map((r,i)=><div key={i} style={{background:"#0d1117",borderRadius:8,padding:12,marginBottom:8,border:"1px solid #1e293b"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                    <span style={{fontSize:12}}>{r.icon}</span><span style={{fontSize:10,fontWeight:500,color:"#e2e8f0"}}>{r.title}</span></div>
+                  <div style={{fontSize:9,color:"#64748b",lineHeight:1.5}}>{r.desc}</div></div>)}
+              </div>}
+            </div>
+
+            <div style={{borderLeft:"1px solid #111827",padding:14,background:"#070b14",overflow:"auto"}}>
+              {selN ? <div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:TYPES[selN.type].color}}/>
+                  <div style={{fontSize:12,fontWeight:600,color:"#f1f5f9"}}>{selN.name}</div></div>
+                <div style={{fontSize:8,color:TYPES[selN.type].color,marginBottom:8}}>{TYPES[selN.type].icon} {TYPES[selN.type].label} | Phase {selN.phase} | Weight {selN.w}/10</div>
+                <div style={{fontSize:10,color:"#94a3b8",lineHeight:1.7,marginBottom:14}}>{selN.detail}</div>
+                <div style={{fontSize:8,color:"#334155",marginBottom:6,fontWeight:500}}>CONNECTIONS ({deg[sel]||0})</div>
+                {EDGES.filter(e=>e.s===sel||e.t===sel).map((e,i)=>{const oid=e.s===sel?e.t:e.s,o=NODES.find(n=>n.id===oid);
+                  if(!o)return null;const cfg=TYPES[o.type],dir=e.s===sel?"\u2192":"\u2190";return(
+                    <div key={i} onClick={()=>setSel(oid)} style={{padding:"5px 6px",marginBottom:2,borderRadius:4,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{color:cfg.color,fontSize:8}}>{cfg.icon}</span>
+                      <span style={{fontSize:9,color:"#94a3b8",flex:1}}>{o.name}</span>
+                      <span style={{fontSize:7,color:"#334155"}}>{dir} {e.label}</span></div>);})}
+              </div> : <div>
+                <div style={{fontSize:10,fontWeight:600,color:"#334155",marginBottom:12}}>SESSION MAP</div>
+                <div style={{fontSize:9,color:"#475569",lineHeight:1.7,marginBottom:16}}>Click any node to drill in.</div>
+                <div style={{fontSize:8,color:"#334155",marginBottom:6,fontWeight:500}}>MOST CONNECTED</div>
+                {Object.entries(deg).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([id,c])=>{const n=NODES.find(x=>x.id===id);
+                  if(!n)return null;const cfg=TYPES[n.type];return(
+                    <div key={id} onClick={()=>setSel(id)} style={{padding:"5px 6px",marginBottom:2,borderRadius:4,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{color:cfg.color,fontSize:8}}>{cfg.icon}</span>
+                      <span style={{fontSize:9,color:"#94a3b8",flex:1}}>{n.name}</span>
+                      <span style={{fontSize:9,color:cfg.color,fontWeight:500}}>{c}</span></div>);})}
+                <div style={{fontSize:8,color:"#334155",marginTop:14,marginBottom:6,fontWeight:500}}>BY TYPE</div>
+                {Object.entries(TYPES).map(([k,v])=>{const c=NODES.filter(n=>n.type===k).length;if(!c)return null;return(
+                  <div key={k} style={{display:"flex",alignItems:"center",gap:5,marginBottom:2,padding:"3px 6px"}}>
+                    <span style={{fontSize:8,color:v.color}}>{v.icon}</span>
+                    <span style={{fontSize:9,color:"#64748b",flex:1}}>{v.label}</span>
+                    <span style={{fontSize:9,color:v.color}}>{c}</span></div>);})}
+              </div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

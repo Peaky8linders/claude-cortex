@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# SessionStart: Load graph from disk, inject quality score + top recommendations
+# SessionStart: Load graph stats, inject quality summary into Claude's context
 set -euo pipefail
 
-PLUGIN_DATA="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/cortex-data}"
-mkdir -p "$PLUGIN_DATA"
+KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 
-GRAPH_FILE="$PLUGIN_DATA/graph.json"
-
-if [ -f "$GRAPH_FILE" ]; then
-  # Read graph and compute summary
-  node "$(dirname "$0")/../scripts/cortex-engine.js" status --brief < /dev/null 2>"$PLUGIN_DATA/cortex.log" || true
+if [ -f "$KNOWLEDGE_DIR/graph/nodes.json" ]; then
+  # Count nodes and edges for a quick summary
+  NODES=$(python3 -c "import json; print(len(json.load(open('$KNOWLEDGE_DIR/graph/nodes.json'))))" 2>/dev/null || echo "?")
+  EDGES=$(python3 -c "import json; print(len(json.load(open('$KNOWLEDGE_DIR/graph/edges.json'))))" 2>/dev/null || echo "?")
+  echo "{\"additionalContext\": \"[Cortex] Graph loaded: ${NODES} nodes, ${EDGES} edges. Use /cortex-status for details.\"}"
 else
-  echo '{"additionalContext": "[Cortex] New session — knowledge graph will build as you work."}'
+  echo '{"additionalContext": "[Cortex] No knowledge graph found. Use /learn after substantial work to start building it."}'
 fi
