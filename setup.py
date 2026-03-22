@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="claude-brainiac",
+    name="claude-cortex",
     version="0.1.0",
     description="Graph-based self-learning memory system for Claude Code",
     author="Peaky8linders",
-    url="https://github.com/Peaky8linders/claude-brainiac",
+    url="https://github.com/Peaky8linders/claude-cortex",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[

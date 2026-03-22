@@ -1,4 +1,4 @@
-"""Allow running as: python -m brainiac.cli <command>"""
+"""Allow running as: python -m brainiac <command>"""
 from .cli import main
 
 main()
