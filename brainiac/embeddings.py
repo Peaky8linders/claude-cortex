@@ -87,7 +87,7 @@ def load_embeddings(graph_dir: Optional[Path] = None) -> dict[str, list[float]]:
     if not path.exists():
         return {}
 
-    data = np.load(path, allow_pickle=True)
+    data = np.load(path, allow_pickle=False)
     ids = data["ids"].tolist()
     matrix = data["matrix"]
     return {nid: matrix[i].tolist() for i, nid in enumerate(ids)}

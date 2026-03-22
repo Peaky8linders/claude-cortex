@@ -1,9 +1,9 @@
 [build-system]
 requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-brainiac"
+name = "claude-cortex"
 version = "0.1.0"
 description = "Graph-based self-learning memory system for Claude Code"
 readme = "README.md"
@@ -18,5 +18,5 @@ dependencies = [
 brainiac = "brainiac.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Peaky8linders/claude-brainiac"
-Repository = "https://github.com/Peaky8linders/claude-brainiac"
+Homepage = "https://github.com/Peaky8linders/claude-cortex"
+Repository = "https://github.com/Peaky8linders/claude-cortex"

@@ -249,8 +249,7 @@ def cmd_link(graph: BrainiacGraph, id1: str, id2: str, relation: str):
 
 def _parse_frontmatter(content: str) -> tuple[dict, str]:
     """Parse YAML-like frontmatter from markdown."""
-    import re as _re
-    match = _re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", content, _re.DOTALL)
+    match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", content, re.DOTALL)
     if not match:
         return {}, content
 

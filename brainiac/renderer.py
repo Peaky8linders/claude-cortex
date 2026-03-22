@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -154,7 +155,6 @@ def update_index(graph: BrainiacGraph, knowledge_root: Path | None = None):
     content = index_path.read_text(encoding="utf-8")
 
     # Replace stats section
-    import re
     stats_pattern = r"## Stats\n.*?(?=\n##|\Z)"
     stats_block = (
         f"## Stats\n"

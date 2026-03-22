@@ -75,11 +75,19 @@ class BrainiacGraph:
 
     def _load(self):
         if self._nodes_path().exists():
-            data = json.loads(self._nodes_path().read_text(encoding="utf-8"))
-            self.nodes = {n["id"]: MemoryNode.from_dict(n) for n in data}
+            try:
+                data = json.loads(self._nodes_path().read_text(encoding="utf-8"))
+                self.nodes = {n["id"]: MemoryNode.from_dict(n) for n in data}
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Warning: corrupted nodes.json, starting fresh: {e}")
+                self.nodes = {}
         if self._edges_path().exists():
-            data = json.loads(self._edges_path().read_text(encoding="utf-8"))
-            self.edges = [Edge.from_dict(e) for e in data]
+            try:
+                data = json.loads(self._edges_path().read_text(encoding="utf-8"))
+                self.edges = [Edge.from_dict(e) for e in data]
+            except json.JSONDecodeError as e:
+                print(f"Warning: corrupted edges.json, starting fresh: {e}")
+                self.edges = []
 
     def save(self):
         self._nodes_path().write_text(
@@ -130,12 +138,10 @@ class BrainiacGraph:
                 return e
         self.edges.append(edge)
         # Update link lists
-        if edge.target not in self.nodes.get(edge.source, MemoryNode(id="", content="", timestamp="")).links:
-            if edge.source in self.nodes:
-                self.nodes[edge.source].links.append(edge.target)
-        if edge.source not in self.nodes.get(edge.target, MemoryNode(id="", content="", timestamp="")).links:
-            if edge.target in self.nodes:
-                self.nodes[edge.target].links.append(edge.source)
+        if edge.source in self.nodes and edge.target not in self.nodes[edge.source].links:
+            self.nodes[edge.source].links.append(edge.target)
+        if edge.target in self.nodes and edge.source not in self.nodes[edge.target].links:
+            self.nodes[edge.target].links.append(edge.source)
         return edge
 
     def remove_edge(self, source: str, target: str, relation: Optional[str] = None):
@@ -193,7 +199,7 @@ class BrainiacGraph:
             "nodes_by_type": dict(type_counts),
             "edges_by_relation": dict(edge_counts),
             "most_connected": [
-                {"id": nid, "connections": count, "name": self.nodes[nid].id if nid in self.nodes else nid}
+                {"id": nid, "connections": count}
                 for nid, count in top_connected
             ],
         }
