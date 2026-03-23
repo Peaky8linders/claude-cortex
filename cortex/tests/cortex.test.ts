@@ -254,6 +254,41 @@ describe("HookProcessor", () => {
 });
 
 // ═══════════════════════════════════════
+// Context Hub Integration via HookProcessor
+// ═══════════════════════════════════════
+
+describe("ContextHub Integration", () => {
+  it("creates a chub node when Bash command contains chub get", () => {
+    processor.process({
+      hook_event_name: "PreToolUse",
+      session_id: "s1",
+      tool_name: "Bash",
+      tool_input: { command: "chub get openai/chat --lang py" },
+    });
+    const chubNode = graph.getNode("chub:openai/chat");
+    expect(chubNode).toBeDefined();
+    expect(chubNode?.name).toBe("chub: openai/chat");
+    expect(chubNode?.properties.source).toBe("context-hub");
+    expect(chubNode?.properties.language).toBe("py");
+  });
+
+  it("creates a hallucination error node when Write content contains stale API pattern", () => {
+    graph.addNode("tool:Write", "Write", "tool");
+    processor.process({
+      hook_event_name: "PostToolUse",
+      session_id: "s1",
+      tool_name: "Write",
+      tool_input: { content: "const result = openai.ChatCompletion.create({ model: 'gpt-4' });" },
+    });
+    const errors = graph.getNodesByType("error");
+    const hallucination = errors.find(e => e.name.includes("Stale API"));
+    expect(hallucination).toBeDefined();
+    expect(hallucination?.properties.pattern).toBe("openai-chat-completions");
+    expect(hallucination?.qualityImpact).toBe(-40);
+  });
+});
+
+// ═══════════════════════════════════════
 // Integration: Full Session Simulation
 // ═══════════════════════════════════════
 
