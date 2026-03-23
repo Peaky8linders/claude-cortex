@@ -16,11 +16,18 @@ python -m brainiac render                           # Regenerate markdown views
 python -m brainiac migrate                          # Import from markdown files
 ```
 
-### Cortex (TypeScript — hook processor + knowledge graph)
+### Cortex (TypeScript — hook processor + knowledge graph + MCP dashboard)
 ```bash
 cd cortex && npm install && npm run build           # Build cortex engine
 cd cortex && npm test                               # Run tests
 ```
+
+### MCP Dashboard Tools (exposed via cortex-dashboard MCP server)
+The following tools are available in Claude Code sessions when the plugin is installed:
+- `cortex_token_timeline` — Token consumption time-series with spike detection
+- `cortex_activity_map` — Gantt-like skill/hook/tool activation timeline
+- `cortex_quality_heatmap` — 7-dimension context quality radar (bridges to Python contextscore)
+- `cortex_graph_explorer` — Interactive knowledge graph (JSON terminal + HTML browser modes)
 
 ### ContextScore (Python — analyzers + snapshot + HTTP API)
 ```bash
@@ -35,12 +42,13 @@ cd contextscore && pytest tests/ -v                  # Run tests
 | Product | Language | Purpose | Tests |
 |---------|----------|---------|-------|
 | `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | 45 |
-| `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 50 |
+| `cortex/` | TypeScript | Hook processor, knowledge graph engine, MCP dashboard server, Context Hub integration | 50 |
 | `contextscore/` | Python | 7 analyzers, snapshot/recovery, HTTP API | 88 |
 
 ### Plugin Structure (Claude Code integration)
 ```
 .claude-plugin/plugin.json   — Plugin manifest
+mcp-config.json              — MCP server registration (cortex-dashboard)
 hooks/hooks.json             — Auto-loaded hook wiring (7 events)
 hooks/scripts/               — Shell scripts → cortex-engine.js
 skills/cortex/SKILL.md       — Auto-invoked cortex advisor

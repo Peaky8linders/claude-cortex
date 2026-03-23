@@ -1,7 +1,8 @@
 {
   "name": "cortex",
-  "version": "0.2.0",
-  "description": "Live knowledge graph, context intelligence, and optimization engine for Claude Code.",
+  "version": "0.3.0",
+  "description": "Live knowledge graph, context intelligence, session dashboard, and optimization engine for Claude Code.",
   "author": "Andrei",
-  "license": "MIT"
+  "license": "MIT",
+  "mcpConfig": "mcp-config.json"
 }

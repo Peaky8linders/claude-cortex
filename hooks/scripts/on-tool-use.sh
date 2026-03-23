@@ -9,5 +9,15 @@ mkdir -p "$KNOWLEDGE_DIR"
 EVENT_TYPE="${1:-unknown}"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Append event to session journal (consumed by /learn at session end)
-echo "{\"type\":\"$EVENT_TYPE\",\"ts\":\"$TIMESTAMP\"}" >> "$JOURNAL" 2>/dev/null || true
+# Capture tool name and estimate tokens from stdin size
+# Sanitize all values to prevent JSON injection (strip quotes, backslashes, control chars)
+sanitize() { echo "$1" | tr -d '"\\\n\r\t' | head -c 100; }
+TOOL_NAME=$(sanitize "${CLAUDE_TOOL_NAME:-unknown}")
+SESSION_ID=$(sanitize "${CLAUDE_SESSION_ID:-$$}")
+SAFE_TYPE=$(sanitize "$EVENT_TYPE")
+# Read stdin to estimate token cost (4 chars ≈ 1 token)
+INPUT_SIZE=$(cat /dev/stdin 2>/dev/null | wc -c | tr -d ' ' || echo "0")
+TOKENS_EST=$(( INPUT_SIZE / 4 ))
+
+# Append enriched event to session journal (backward-compatible: old fields + new fields)
+echo "{\"type\":\"$SAFE_TYPE\",\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL_NAME\",\"sid\":\"$SESSION_ID\",\"tokens_est\":$TOKENS_EST,\"event\":\"PostToolUse\"}" >> "$JOURNAL" 2>/dev/null || true

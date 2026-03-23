@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cortex-dashboard": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/cortex/dist/mcp/server.js"],
+      "env": {
+        "CORTEX_KNOWLEDGE_DIR": "${HOME}/.claude/knowledge"
+      }
+    }
+  }
+}
