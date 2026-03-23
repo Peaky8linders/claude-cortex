@@ -17,6 +17,58 @@ from .retriever import retrieve, detect_intent
 from .renderer import render_views, update_index
 
 
+def cmd_quality(graph: BrainiacGraph):
+    """Compute and print quality score (0-100).
+
+    Mirrors cortex/src/graph/knowledge-graph.ts computeQualityScore().
+    Used by ralph-loop.sh and /run-tasks for quality gating.
+    """
+    from collections import Counter
+
+    s = graph.stats()
+    total_nodes = s["total_nodes"]
+    total_edges = s["total_edges"]
+    type_counts = s["nodes_by_type"]
+
+    # Baseline
+    score = 70
+
+    # +3 per decision node (max +15)
+    decision_count = type_counts.get("decision", 0)
+    score += min(decision_count * 3, 15)
+
+    # +5 per resolved error (max +10) — count solutions linked to errors
+    solution_count = type_counts.get("solution", 0)
+    score += min(solution_count * 5, 10)
+
+    # +5 for good edge density (>= 1.5 edges per node)
+    if total_nodes > 0 and total_edges / total_nodes >= 1.5:
+        score += 5
+
+    # -2 per orphaned node (max -15) — nodes with 0 edges
+    if total_nodes > 0:
+        connected = set()
+        for e in graph.edges:
+            connected.add(e.source)
+            connected.add(e.target)
+        orphan_count = sum(1 for n in graph.nodes if n not in connected)
+        score -= min(orphan_count * 2, 15)
+
+    # Clamp to 0-100
+    score = max(0, min(100, score))
+
+    # Output just the number (for scripting) unless --verbose
+    if "--verbose" in sys.argv:
+        print(f"Quality: {score}/100")
+        print(f"  Nodes: {total_nodes}, Edges: {total_edges}")
+        print(f"  Decisions: {decision_count}, Solutions: {solution_count}")
+        if total_nodes > 0:
+            print(f"  Edge density: {total_edges / total_nodes:.2f}")
+            print(f"  Orphans: {orphan_count}")
+    else:
+        print(score)
+
+
 def cmd_stats(graph: BrainiacGraph):
     """Show graph overview."""
     s = graph.stats()
@@ -278,7 +330,7 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
 def main():
     if len(sys.argv) < 2:
         print("Usage: python -m brainiac.cli <command> [args]")
-        print("Commands: stats, search, add, link, consolidate, render, migrate")
+        print("Commands: stats, quality, search, add, link, consolidate, render, migrate")
         sys.exit(1)
 
     graph = BrainiacGraph()
@@ -286,6 +338,8 @@ def main():
 
     if command == "stats":
         cmd_stats(graph)
+    elif command == "quality":
+        cmd_quality(graph)
     elif command == "search":
         if len(sys.argv) < 3:
             print("Usage: python -m brainiac.cli search <query>")
