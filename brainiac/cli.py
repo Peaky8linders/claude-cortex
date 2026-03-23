@@ -17,14 +17,12 @@ from .retriever import retrieve, detect_intent
 from .renderer import render_views, update_index
 
 
-def cmd_quality(graph: BrainiacGraph):
+def cmd_quality(graph: BrainiacGraph, verbose: bool = False):
     """Compute and print quality score (0-100).
 
     Mirrors cortex/src/graph/knowledge-graph.ts computeQualityScore().
     Used by ralph-loop.sh and /run-tasks for quality gating.
     """
-    from collections import Counter
-
     s = graph.stats()
     total_nodes = s["total_nodes"]
     total_edges = s["total_edges"]
@@ -37,7 +35,7 @@ def cmd_quality(graph: BrainiacGraph):
     decision_count = type_counts.get("decision", 0)
     score += min(decision_count * 3, 15)
 
-    # +5 per resolved error (max +10) — count solutions linked to errors
+    # +5 per solution node (max +10)
     solution_count = type_counts.get("solution", 0)
     score += min(solution_count * 5, 10)
 
@@ -46,8 +44,11 @@ def cmd_quality(graph: BrainiacGraph):
         score += 5
 
     # -2 per orphaned node (max -15) — nodes with 0 edges
+    # Use most_connected from stats() to find connected nodes
+    orphan_count = 0
     if total_nodes > 0:
-        connected = set()
+        connected = {item["id"] for item in s["most_connected"]}
+        # most_connected only has top 5; scan edges for full set
         for e in graph.edges:
             connected.add(e.source)
             connected.add(e.target)
@@ -57,8 +58,7 @@ def cmd_quality(graph: BrainiacGraph):
     # Clamp to 0-100
     score = max(0, min(100, score))
 
-    # Output just the number (for scripting) unless --verbose
-    if "--verbose" in sys.argv:
+    if verbose:
         print(f"Quality: {score}/100")
         print(f"  Nodes: {total_nodes}, Edges: {total_edges}")
         print(f"  Decisions: {decision_count}, Solutions: {solution_count}")
@@ -339,7 +339,7 @@ def main():
     if command == "stats":
         cmd_stats(graph)
     elif command == "quality":
-        cmd_quality(graph)
+        cmd_quality(graph, verbose="--verbose" in sys.argv)
     elif command == "search":
         if len(sys.argv) < 3:
             print("Usage: python -m brainiac.cli search <query>")

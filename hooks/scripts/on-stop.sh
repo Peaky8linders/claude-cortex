@@ -12,14 +12,17 @@ if [ -f "$RALPH_FILE" ]; then
   RALPH_OUTPUT=$("$SCRIPT_DIR/ralph-loop.sh" 2>>"$RALPH_LOG" || echo "")
   if [ -n "$RALPH_OUTPUT" ]; then
     echo "$RALPH_OUTPUT"
+    # Clean up cache if loop ended (ralph-loop.sh removed .ralph-active)
+    if [ ! -f "$RALPH_FILE" ]; then
+      rm -f "$KNOWLEDGE_DIR/.ralph-search-cache"
+    fi
     exit 0
   fi
-  # If ralph-loop.sh returned empty but didn't clean up, log it
+  # ralph-loop.sh returned empty but didn't clean up — error state
   if [ -f "$RALPH_FILE" ]; then
     echo "[Ralph] WARNING: Loop script returned no output but .ralph-active still exists. Check $RALPH_LOG" >> "$RALPH_LOG"
     echo "[Ralph] Loop error detected. Check ~/.claude/knowledge/ralph-errors.log for details."
   fi
-  # Clean up search cache when loop ends
   rm -f "$KNOWLEDGE_DIR/.ralph-search-cache"
 fi
 

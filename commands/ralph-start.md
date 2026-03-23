@@ -39,21 +39,24 @@ cat > ~/.claude/knowledge/.ralph-active << 'RALPH'
 RALPH
 ```
 
-Use python3 to write proper JSON:
+Use python3 with `json.dumps` for safe serialization (handles quotes, backslashes, newlines):
 ```bash
-python3 -c "
-import json, datetime
+python3 << 'PYEOF'
+import json, datetime, os
 data = {
-    'prompt': '''THE_PROMPT''',
-    'max_iterations': MAX_ITER,
-    'iteration': 0,
-    'scope': 'SCOPE_OR_EMPTY',
-    'started_at': datetime.datetime.now().isoformat()
+    "prompt": "THE_PROMPT",
+    "max_iterations": MAX_ITER,
+    "iteration": 0,
+    "scope": "SCOPE_OR_EMPTY",
+    "started_at": datetime.datetime.now().isoformat()
 }
-with open('$HOME/.claude/knowledge/.ralph-active', 'w') as f:
+ralph_path = os.path.join(os.environ.get("HOME", os.path.expanduser("~")), ".claude", "knowledge", ".ralph-active")
+with open(ralph_path, "w") as f:
     json.dump(data, f, indent=2)
-"
+PYEOF
 ```
+
+Replace `THE_PROMPT`, `MAX_ITER`, and `SCOPE_OR_EMPTY` with the actual values. Use a heredoc (`<< 'PYEOF'`) so that the prompt text is never interpolated by the shell — only parsed by Python's JSON serializer.
 
 ### Step 3: Activate Freeze (if scope provided)
 If the user specified `--scope`, activate `/freeze` for that directory to prevent edits outside the boundary.

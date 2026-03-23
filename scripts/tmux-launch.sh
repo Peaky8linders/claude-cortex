@@ -58,9 +58,9 @@ case "$MODE" in
       echo "Usage: ./tmux-launch.sh session-name --ralph \"Your task prompt\""
       exit 1
     fi
-    MAX_ITER="${4:---max-iterations 50}"
+    MAX_ITER="${4:-50}"
     echo "Starting Ralph loop: $RALPH_PROMPT"
-    tmux send-keys -t "$SESSION_NAME" "/ralph-start \"$RALPH_PROMPT\" $MAX_ITER" Enter
+    tmux send-keys -t "$SESSION_NAME" "/ralph-start \"$RALPH_PROMPT\" --max-iterations $MAX_ITER" Enter
     ;;
   interactive)
     echo "Interactive mode — attach to send commands."

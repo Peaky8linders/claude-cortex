@@ -4,11 +4,13 @@
 # Calls brainiac quality command for real scoring
 set -euo pipefail
 
-SCORE=$(cd "$HOME/.claude/knowledge" && python3 -m brainiac quality 2>/dev/null || echo "70")
+SCORE=$(cd "$HOME/.claude/knowledge" && python3 -m brainiac quality 2>/dev/null || echo "")
 
 # Validate it's a number
 if [[ "$SCORE" =~ ^[0-9]+$ ]]; then
   echo "$SCORE"
 else
+  # Fallback: warn to stderr, return default
+  echo "[Quality] WARNING: brainiac quality failed, using fallback score 70" >&2
   echo "70"
 fi
