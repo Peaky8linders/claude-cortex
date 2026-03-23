@@ -61,12 +61,27 @@ Types of knowledge you can capture:
 
 ### 5. Survive compaction
 
-When Claude's context gets compacted, Cortex injects a recovery block:
+When Claude's context gets compacted, the ContextScore snapshot system captures critical context and Cortex injects a recovery block:
+- Current task description
 - Active decisions (with "DO NOT reverse" warning)
+- Key code entities (classes, configs)
 - Current file list
-- Unresolved errors
+- Established patterns and conventions
+- Resolved errors (with "DO NOT re-introduce" warning)
+
+The snapshot extractor uses regex-based analysis to pull decisions, entities, file paths, patterns, and error resolutions from your session. Recovery formatting produces a structured prompt that preserves session continuity.
 
 This is the **killer feature** — it solves the #1 Claude Code pain point: "Claude gets dumber after compaction."
+
+### 6. Review and ship code
+
+Run `/review-and-ship` to execute the full review-to-PR pipeline in one command:
+1. Pre-flight checks (remote, auth, branch divergence)
+2. 3 parallel review agents (security, quality, architecture)
+3. Consolidate findings and fix critical/high issues
+4. Run all test suites
+5. Create PR with review summary
+6. Verify CI and report
 
 ## Data Visualization
 
@@ -103,6 +118,8 @@ Three views:
 | `/cortex-dashboard` | Open interactive visualization in browser |
 | `/learn` | Capture session insights as graph nodes |
 | `/hypothesis` | Track testable claims with evidence |
+| `/brainiac` | Direct graph CLI wrapper (search, add, stats) |
+| `/review-and-ship` | Deep code review with parallel agents, fix, test, and ship PR |
 
 ## CLI Reference (for manual graph operations)
 
@@ -117,9 +134,6 @@ python -m brainiac stats
 
 # Add a new pattern
 python -m brainiac add pattern "Always validate CF documents before creating listings"
-
-# Add a manual causal edge
-python -m brainiac link pat-001 anti-001 causal
 
 # Find optimization candidates
 python -m brainiac consolidate

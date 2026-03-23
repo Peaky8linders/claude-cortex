@@ -35,8 +35,8 @@ cd contextscore && pytest tests/ -v                  # Run tests
 | Product | Language | Purpose | Tests |
 |---------|----------|---------|-------|
 | `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | 11 |
-| `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 59 |
-| `contextscore/` | Python | 7 analyzers for context quality scoring, snapshot/recovery, HTTP API | 71+ |
+| `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 50 |
+| `contextscore/` | Python | 7 analyzers, snapshot/recovery, HTTP API | 88 |
 
 ### Plugin Structure (Claude Code integration)
 ```
@@ -45,8 +45,29 @@ hooks/hooks.json             — Auto-loaded hook wiring (7 events)
 hooks/scripts/               — Shell scripts → cortex-engine.js
 skills/cortex/SKILL.md       — Auto-invoked cortex advisor
 agents/cortex-advisor.md     — Deep analysis subagent (Haiku model)
-commands/                    — Slash commands (/cortex-status, /cortex-recommend, /review-and-ship, etc.)
+commands/                    — Slash commands:
+  /cortex-status             — Graph health: nodes, edges, types
+  /cortex-recommend          — Optimization suggestions
+  /cortex-snapshot           — Save graph state to disk
+  /cortex-graph              — Full graph dump
+  /cortex-dashboard          — Interactive visualization
+  /learn                     — Capture session insights
+  /hypothesis                — Track testable claims
+  /brainiac                  — Direct graph CLI wrapper
+  /review-and-ship           — Deep review → fix → test → PR pipeline
 ```
+
+### ContextScore Modules (`contextscore/`)
+| Module | Purpose |
+|--------|---------|
+| `analyzers/` | 7 analyzers: semantic relevance, redundancy, distractors, density, fragmentation, structure, economics |
+| `scorer.py` | Weighted aggregation across 7 quality dimensions |
+| `snapshot/extractor.py` | Extract decisions, entities, files, patterns, errors from session context |
+| `snapshot/store.py` | JSON persistence for snapshots in `.claude/context-snapshots/` |
+| `snapshot/recovery.py` | Format recovery prompt for post-compaction injection |
+| `middleware.py` | Request/response pipeline with quality gating |
+| `api/server.py` | FastAPI HTTP server for external scoring |
+| `models.py` | Data models: Severity, IssueCause, CAUSE_CATALOG, snapshot dataclasses |
 
 ### Brainiac Core Modules (`brainiac/`)
 | Module | Purpose |
@@ -85,8 +106,10 @@ commands/                    — Slash commands (/cortex-status, /cortex-recomme
 ## Key Design Decisions
 
 - **JSON persistence, not SQLite** — Zero deps, graph is <200KB
+- **Python canonical for scoring** — contextscore (Python) is the single source of truth for analyzers, snapshot/recovery, and HTTP API
 - **Async hooks for PostToolUse** — Must not add latency to Claude's tool loop
 - **Sync hooks for SessionStart/PostCompact** — Context injection requires sync
+- **Context Hub integration** — ContextHubIntegration wired into HookProcessor for chub command tracking and stale API detection
 - **Subagent for deep analysis** — Isolates token cost from main context
 - **No database, no Docker, no daemon** — One install must be the entire setup
 
