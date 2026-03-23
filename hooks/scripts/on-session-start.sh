@@ -3,6 +3,13 @@
 set -euo pipefail
 
 KNOWLEDGE_DIR="$HOME/.claude/knowledge"
+JOURNAL="$KNOWLEDGE_DIR/session-journal.jsonl"
+mkdir -p "$KNOWLEDGE_DIR"
+
+# Log session start boundary to journal
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+SESSION_ID="${CLAUDE_SESSION_ID:-$$}"
+echo "{\"type\":\"session_start\",\"ts\":\"$TIMESTAMP\",\"sid\":\"$SESSION_ID\"}" >> "$JOURNAL" 2>/dev/null || true
 
 if [ -f "$KNOWLEDGE_DIR/graph/nodes.json" ]; then
   # Count nodes and edges for a quick summary
