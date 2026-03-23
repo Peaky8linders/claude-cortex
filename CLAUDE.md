@@ -80,7 +80,7 @@ commands/                    — Slash commands:
 | `graph.py` | Core data model: MemoryNode, Edge, BrainiacGraph (JSON-backed CRUD) |
 | `embeddings.py` | Local sentence-transformer embeddings (all-MiniLM-L6-v2, 384-dim) |
 | `linker.py` | Auto-linking: semantic (cosine >= 0.7), temporal (7-day window), entity (shared tags) |
-| `retriever.py` | Intent-aware multi-hop BFS retrieval with edge-type weighting |
+| `retriever.py` | Intent-aware multi-hop BFS retrieval + re-ranking + score-adaptive truncation |
 | `consolidator.py` | Propose-only memory evolution: merge, abstract, prune candidates |
 | `renderer.py` | Graph-to-markdown view generation + INDEX.md stats sync |
 | `cli.py` | CLI entry point for all operations |
@@ -93,7 +93,7 @@ commands/                    — Slash commands:
 | PostToolUse | Bash | Track commands, detect tests/commits, Context Hub chub tracking | Yes |
 | PostToolUse | Read\|Search | Track file reads, detect compaction signals | Yes |
 | PreCompact | auto\|manual | Snapshot decisions, entities, files to disk | No (must complete) |
-| PostCompact | * | Inject recovery: decisions, active files, errors | No (context injection) |
+| PostCompact | * | Inject lossless pointers: decisions, patterns, hypotheses | No (context injection) |
 | Stop | * | Persist graph, output summary, check Ralph loop | No (must output) |
 
 ### Edge Types
@@ -107,6 +107,8 @@ commands/                    — Slash commands:
 - **MAGMA** (2026) — Multi-graph with intent-aware routing + typed edges
 - **Talisman** — Context as credence good, context rot, 80% token reduction via graphs
 - **Sequoia** — Services-as-software thesis: sell work, not tools
+- **SmartSearch** (Derehag et al. 2026) — Ranking > retrieval; score-adaptive truncation; 8.5x token reduction
+- **LCM** (Ehrlich 2026) — Lossless Context Management; hierarchical DAG; +4.5 over Claude Code on OOLONG
 
 ## Key Design Decisions
 

@@ -69,6 +69,70 @@ def cmd_quality(graph: BrainiacGraph, verbose: bool = False):
         print(score)
 
 
+def cmd_expand(graph: BrainiacGraph, node_id: str):
+    """Expand a lossless pointer — show full node content and connections.
+
+    Part of the lossless context management system (LCM pattern).
+    PostCompact injects compact pointers; this command recovers full context.
+    Also searches snapshots for historical versions of the node.
+    """
+    node = graph.get_node(node_id)
+    if not node:
+        print(f"Node {node_id} not found in current graph.")
+        # Search snapshots
+        _search_snapshots(node_id)
+        return
+
+    print(f"\n=== {node.id} ===")
+    print(f"Type: {node.metadata.get('type', 'unknown')}")
+    print(f"Created: {node.timestamp}")
+    if node.metadata.get("updated"):
+        print(f"Updated: {node.metadata['updated']}")
+    print(f"Status: {node.metadata.get('status', 'active')}")
+    print(f"Confidence: {node.metadata.get('confidence', 'unknown')}")
+    print(f"\nContent:")
+    print(f"  {node.content}")
+    print(f"\nKeywords: {', '.join(node.keywords)}")
+    if node.tags:
+        print(f"Tags: {', '.join(node.tags)}")
+    if node.metadata.get("projects"):
+        print(f"Projects: {', '.join(node.metadata['projects'])}")
+
+    # Show connections
+    edges = graph.edges_for(node_id)
+    if edges:
+        print(f"\nConnections ({len(edges)}):")
+        for e in edges:
+            other = e.target if e.source == node_id else e.source
+            other_node = graph.get_node(other)
+            other_label = other_node.content[:50] if other_node else "?"
+            direction = "→" if e.source == node_id else "←"
+            print(f"  {direction} [{e.relation}] {other}: {other_label}")
+
+
+def _search_snapshots(node_id: str):
+    """Search snapshot files for a node ID."""
+    snapshots_dir = Path.home() / ".claude" / "knowledge" / "snapshots"
+    if not snapshots_dir.exists():
+        print("No snapshots available.")
+        return
+
+    snapshot_files = sorted(snapshots_dir.glob("nodes_*.json"), reverse=True)
+    for snap_path in snapshot_files[:5]:
+        try:
+            with open(snap_path) as f:
+                nodes = json.load(f)
+            for n in nodes:
+                if n.get("id") == node_id:
+                    print(f"\nFound in snapshot {snap_path.name}:")
+                    print(f"  Type: {n.get('metadata', {}).get('type', '?')}")
+                    print(f"  Content: {n.get('content', '?')[:200]}")
+                    return
+        except Exception:
+            continue
+    print("Node not found in recent snapshots.")
+
+
 def cmd_stats(graph: BrainiacGraph):
     """Show graph overview."""
     s = graph.stats()
@@ -330,7 +394,7 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
 def main():
     if len(sys.argv) < 2:
         print("Usage: python -m brainiac.cli <command> [args]")
-        print("Commands: stats, quality, search, add, link, consolidate, render, migrate")
+        print("Commands: stats, quality, search, expand, add, link, consolidate, render, migrate")
         sys.exit(1)
 
     graph = BrainiacGraph()
@@ -340,6 +404,11 @@ def main():
         cmd_stats(graph)
     elif command == "quality":
         cmd_quality(graph, verbose="--verbose" in sys.argv)
+    elif command == "expand":
+        if len(sys.argv) < 3:
+            print("Usage: python -m brainiac expand <node-id>")
+            sys.exit(1)
+        cmd_expand(graph, sys.argv[2])
     elif command == "search":
         if len(sys.argv) < 3:
             print("Usage: python -m brainiac.cli search <query>")
