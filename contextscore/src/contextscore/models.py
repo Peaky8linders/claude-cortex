@@ -351,3 +351,41 @@ class ScoreResult:
                 "potential_savings": round(self.economics.potential_savings, 4),
             },
         }
+
+
+# ── Snapshot / Recovery Models ──
+
+
+@dataclass
+class SnapshotDecision:
+    """A decision extracted from session context."""
+    description: str
+    reasoning: str = ""
+    affected_files: list[str] = field(default_factory=list)
+    timestamp: str = ""
+
+
+@dataclass
+class SnapshotEntity:
+    """An entity (file, class, config) extracted from context."""
+    name: str
+    type: str  # "file" | "class" | "config"
+    context: str = ""
+    last_mentioned_turn: int = -1
+
+
+@dataclass
+class ContextSnapshot:
+    """Complete snapshot of session context for recovery after compaction."""
+    session_id: str
+    timestamp: str
+    turn_count: int
+    token_count: int
+    quality_score: float
+    decisions: list[SnapshotDecision] = field(default_factory=list)
+    entities: list[SnapshotEntity] = field(default_factory=list)
+    active_files: list[str] = field(default_factory=list)
+    patterns: list[str] = field(default_factory=list)
+    error_resolutions: list[str] = field(default_factory=list)
+    current_task: str = ""
+    compact_instructions: str = ""

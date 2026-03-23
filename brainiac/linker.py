@@ -117,21 +117,6 @@ def _link_entity(graph: BrainiacGraph, node: MemoryNode):
             ))
 
 
-def add_causal_edge(
-    graph: BrainiacGraph,
-    source_id: str,
-    target_id: str,
-    description: str = "",
-) -> Edge:
-    """Explicitly add a causal edge (only via /learn, never auto)."""
-    return graph.add_edge(Edge(
-        source=source_id,
-        target=target_id,
-        relation="causal",
-        weight=1.0,
-        metadata={"auto": False, "description": description, "created": _now()},
-    ))
-
 
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")

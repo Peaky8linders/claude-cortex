@@ -8,6 +8,7 @@
 
 import { KnowledgeGraph } from "../graph/knowledge-graph.js";
 import type { NodeType, EdgeType } from "../graph/knowledge-graph.js";
+import { ContextHubIntegration } from "../analyzer/chub-integration.js";
 
 export interface HookEvent {
   hook_event_name: string;
@@ -97,6 +98,10 @@ const HANDLERS: Record<string, EventHandler> = {
       if (cmd.includes("git commit") || cmd.includes("git push")) {
         graph.addNode("pattern:git-commit", "Git commit", "pattern", { command: cmd.slice(0, 100) });
       }
+
+      // Context Hub: track chub fetch/annotate commands
+      const chub = new ContextHubIntegration(graph);
+      chub.processBashCommand(cmd, "");
     }
   },
 
@@ -115,6 +120,10 @@ const HANDLERS: Record<string, EventHandler> = {
     if ((toolName === "Write" || toolName === "Edit") && event.tool_input) {
       const content = String(event.tool_input.content ?? event.tool_input.new_string ?? "");
       extractDecisionsFromCode(graph, content);
+
+      // Context Hub: detect stale API patterns
+      const chub = new ContextHubIntegration(graph);
+      chub.detectHallucinations(content);
     }
 
     // Extract errors from bash output

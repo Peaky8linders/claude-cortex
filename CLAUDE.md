@@ -19,38 +19,24 @@ python -m brainiac migrate                          # Import from markdown files
 ### Cortex (TypeScript — hook processor + knowledge graph)
 ```bash
 cd cortex && npm install && npm run build           # Build cortex engine
-cd cortex && npm test                               # Run 48 tests
+cd cortex && npm test                               # Run tests
 ```
 
-### OpenBrain (TypeScript — L1→L4 pipeline + MCP)
-```bash
-cd openbrain && npm install && npm run build         # Build openbrain
-cd openbrain && npm test                             # Run 27 tests
-```
-
-### ContextScore Claude Code (TypeScript — analyzers + snapshot)
-```bash
-cd contextscore-cc && npm install && npm run build   # Build contextscore
-cd contextscore-cc && npm test                       # Run 41 tests
-```
-
-### ContextScore Python (Original MVP)
+### ContextScore (Python — analyzers + snapshot + HTTP API)
 ```bash
 cd contextscore && pip install -e .                  # Install
-cd contextscore && pytest tests/ -v                  # Run 71 tests
+cd contextscore && pytest tests/ -v                  # Run tests
 ```
 
 ## Architecture
 
-### Cortex Ecosystem (4 products, 187 tests)
+### Cortex Ecosystem (3 products)
 
 | Product | Language | Purpose | Tests |
 |---------|----------|---------|-------|
-| `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | via brainiac CLI |
-| `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 48 |
-| `openbrain/` | TypeScript | L1→L4 pipeline, MCP server (8 tools), CLI (6 commands) | 27 |
-| `contextscore-cc/` | TypeScript | 7 analyzers for context quality scoring, snapshot/recovery | 41 |
-| `contextscore/` | Python | Original ContextScore MVP with HTTP API + React dashboard | 71 |
+| `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | 11 |
+| `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 59 |
+| `contextscore/` | Python | 7 analyzers for context quality scoring, snapshot/recovery, HTTP API | 71+ |
 
 ### Plugin Structure (Claude Code integration)
 ```
@@ -77,8 +63,8 @@ commands/                    — Slash commands (/cortex-status, /cortex-recomme
 | Event | Matcher | What Cortex Does | Async |
 |-------|---------|------------------|-------|
 | SessionStart | startup\|resume | Load graph, inject quality score + recs | No (context injection) |
-| PostToolUse | Write\|Edit\|MultiEdit | Update file/tool nodes, extract decisions | Yes |
-| PostToolUse | Bash | Track commands, detect tests/commits | Yes |
+| PostToolUse | Write\|Edit\|MultiEdit | Update file/tool nodes, extract decisions, detect stale API patterns | Yes |
+| PostToolUse | Bash | Track commands, detect tests/commits, Context Hub chub tracking | Yes |
 | PostToolUse | Read\|Search | Track file reads, detect compaction signals | Yes |
 | PreCompact | auto\|manual | Snapshot decisions, entities, files to disk | No (must complete) |
 | PostCompact | * | Inject recovery: decisions, active files, errors | No (context injection) |

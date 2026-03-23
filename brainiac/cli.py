@@ -13,7 +13,7 @@ from .graph import BrainiacGraph, MemoryNode, Edge
 from . import embeddings
 from .linker import link_new_node
 from .consolidator import find_merge_candidates, find_abstraction_candidates, find_stale_nodes
-from .retriever import retrieve, search_simple, detect_intent
+from .retriever import retrieve, detect_intent
 from .renderer import render_views, update_index
 
 
