@@ -7,6 +7,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
+
 from .graph import BrainiacGraph, MemoryNode
 from . import embeddings
 
@@ -128,9 +130,82 @@ def retrieve(
             if len(results) >= MAX_NODES:
                 break
 
-    # Sort by score and return top_k
-    sorted_results = sorted(results.values(), key=lambda r: r.score, reverse=True)
-    return sorted_results[:top_k]
+    # Re-rank: rescore all candidates against the original query embedding
+    # SmartSearch (Derehag et al.) showed 77.5% of gold evidence is discarded
+    # without re-ranking. This second pass replaces hop-decayed BFS scores
+    # with direct query-candidate similarity, rescuing buried multi-hop results.
+    reranked = rerank(list(results.values()), query_vec, all_embeddings)
+
+    # Score-adaptive truncation: cut results where score drops sharply
+    # SmartSearch showed truncation strategy matters more than recall
+    truncated = truncate_adaptive(reranked)
+
+    return truncated[:top_k]
+
+
+def rerank(
+    results: list[RetrievalResult],
+    query_vec: list[float],
+    all_embeddings: dict[str, list[float]],
+) -> list[RetrievalResult]:
+    """Re-rank retrieval results by direct cosine similarity to query.
+
+    BFS scoring decays with hops (0.7^hop * 0.3), which buries relevant
+    nodes found via multi-hop traversal. Re-ranking replaces BFS scores
+    with a blend of direct similarity and graph-traversal signal.
+
+    Blend: 0.7 * direct_similarity + 0.3 * normalized_bfs_score
+    This preserves graph structure signal while letting direct relevance dominate.
+    """
+    if not results:
+        return results
+
+    query = np.array(query_vec)
+
+    # Normalize BFS scores to 0-1 range for blending
+    max_bfs = max(r.score for r in results) if results else 1.0
+    if max_bfs == 0:
+        max_bfs = 1.0
+
+    for result in results:
+        emb = all_embeddings.get(result.node.id)
+        if emb:
+            direct_sim = float(np.dot(query, np.array(emb)))
+            direct_sim = max(0.0, direct_sim)  # clamp negatives
+        else:
+            direct_sim = 0.0
+
+        normalized_bfs = result.score / max_bfs
+        result.score = 0.7 * direct_sim + 0.3 * normalized_bfs
+
+    results.sort(key=lambda r: r.score, reverse=True)
+    return results
+
+
+def truncate_adaptive(
+    results: list[RetrievalResult],
+    min_results: int = 3,
+    drop_threshold: float = 0.5,
+) -> list[RetrievalResult]:
+    """Score-adaptive truncation: cut where score drops sharply.
+
+    If the relative score drop between consecutive results exceeds
+    drop_threshold (50%), truncate there. Always keeps at least
+    min_results items.
+
+    Inspired by SmartSearch's score-adaptive truncation that achieved
+    8.5x token reduction while maintaining 93.5% accuracy.
+    """
+    if len(results) <= min_results:
+        return results
+
+    for i in range(min_results, len(results)):
+        prev_score = results[i - 1].score
+        curr_score = results[i].score
+        if prev_score > 0 and (prev_score - curr_score) / prev_score > drop_threshold:
+            return results[:i]
+
+    return results
 
 
 def search_simple(
