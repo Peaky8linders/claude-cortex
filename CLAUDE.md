@@ -55,6 +55,11 @@ commands/                    — Slash commands:
   /hypothesis                — Track testable claims
   /brainiac                  — Direct graph CLI wrapper
   /review-and-ship           — Deep review → fix → test → PR pipeline
+  /run-tasks                 — Looping subagent runner: execute task list autonomously
+  /ralph-start               — Start Ralph Wiggum autonomous loop with quality gate
+  /ralph-stop                — Stop Ralph loop, show session summary
+  /ralph-status              — Monitor active Ralph loop (read-only dashboard)
+  /auto-research             — Structured experiment runner with hypothesis tracking
 ```
 
 ### ContextScore Modules (`contextscore/`)
@@ -89,7 +94,7 @@ commands/                    — Slash commands:
 | PostToolUse | Read\|Search | Track file reads, detect compaction signals | Yes |
 | PreCompact | auto\|manual | Snapshot decisions, entities, files to disk | No (must complete) |
 | PostCompact | * | Inject recovery: decisions, active files, errors | No (context injection) |
-| Stop | * | Persist graph, output 1-line summary | No (must output) |
+| Stop | * | Persist graph, output summary, check Ralph loop | No (must output) |
 
 ### Edge Types
 - **semantic** — Cosine similarity >= 0.7 (auto)
@@ -120,3 +125,37 @@ commands/                    — Slash commands:
 - Embeddings stored separately from node JSON for efficiency
 - CLI uses exit code 1 for errors, print to stdout for results
 - Core thesis: **coherence > capacity** — quality of context matters more than quantity
+
+## Autonomy System
+
+### Levels
+| Level | Skill | What It Does |
+|-------|-------|-------------|
+| L1 | Smart permissions | `settings.json` allow/deny lists — no `--dangerously-skip-permissions` needed |
+| L3 | `/run-tasks` | Reads task YAML, spawns each as subagent, commits results, quality-gated |
+| L4 | `/ralph-start` | Stop hook re-feeds prompt, creating autonomous loop with Cortex quality gate |
+| L5 | `/auto-research` | Structured experiment runner with `/hypothesis` tracking and eval loops |
+
+### Safety (Moderate Risk Profile)
+- **Quality gate**: Halts at Cortex quality score < 30
+- **Freeze boundary**: `/freeze` scopes edits to specified directory
+- **Git push blocked**: Accumulated commits reviewed manually
+- **Iteration cap**: Ralph loop defaults to 50 max iterations
+- **Bash guard**: Destructive commands blocked in `settings.json` deny list
+
+### tmux Runtime
+```bash
+./scripts/tmux-launch.sh                              # Interactive
+./scripts/tmux-launch.sh "session" tasks.yaml          # Task runner
+./scripts/tmux-launch.sh "session" --ralph "PROMPT"    # Ralph loop
+```
+
+### Ralph Wiggum Loop Architecture
+```
+Stop hook fires → ralph-loop.sh checks:
+  1. Loop file exists? (~/.claude/knowledge/.ralph-active)
+  2. Quality score >= 30?
+  3. Iteration < max?
+  → YES to all: re-feed prompt with git diff + graph context
+  → NO to any: halt, output reason, clean up
+```
