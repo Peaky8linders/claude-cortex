@@ -34,7 +34,7 @@ cd contextscore && pytest tests/ -v                  # Run tests
 
 | Product | Language | Purpose | Tests |
 |---------|----------|---------|-------|
-| `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | 11 |
+| `brainiac/` | Python | Semantic embedding engine, graph persistence, CLI | 45 |
 | `cortex/` | TypeScript | Hook processor, knowledge graph engine, Context Hub integration | 50 |
 | `contextscore/` | Python | 7 analyzers, snapshot/recovery, HTTP API | 88 |
 
