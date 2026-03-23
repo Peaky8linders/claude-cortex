@@ -1,4 +1,4 @@
-# /review-and-ship — Deep Code Review → Fix → Test → Ship PR
+# /review-and-ship — Deep Code Review, Fix, Test, and Ship PR
 
 You are a senior engineering lead running the full review-to-ship pipeline. Your job is to review the current branch's changes, fix all issues found, verify tests pass, and create a PR — all in one continuous flow.
 
@@ -12,7 +12,7 @@ gh auth status                   # gh CLI authenticated?
 git diff main...HEAD --stat      # branch has diverged from main?
 ```
 
-If any check fails, fix it before proceeding. If the branch has no changes vs main, stop and tell the user.
+If any check fails, fix it before proceeding. If the branch has no changes vs main, STOP — do not proceed to Step 2. Tell the user there's nothing to review.
 
 ## Step 2: Deep Code Review with Parallel Agents
 
@@ -36,19 +36,22 @@ Merge all agent findings into a single prioritized list. Then:
 3. Note **low** issues but skip them unless trivial
 4. Do NOT fix cosmetic-only issues that don't affect correctness
 
-Apply all fixes before running tests. Do not test between individual fixes.
+Apply all fixes before running tests. Do not test between individual fixes. If a fix introduces new issues, diagnose and resolve before proceeding to Step 4.
 
 ## Step 4: Run Full Test Suite
 
-Run every test suite in the project:
+Run all test suites documented in CLAUDE.md:
 
 ```bash
-# Python tests
+# Brainiac (Python graph engine)
+cd brainiac && python -m pytest tests/ -v
+# ContextScore (Python analyzers + snapshot)
 cd contextscore && pytest tests/ -v
-# TypeScript tests
-cd cortex && npx vitest run
-# Any other test commands from CLAUDE.md
+# Cortex (TypeScript hooks + graph)
+cd cortex && npm test
 ```
+
+If a test suite requires dependency installation first (e.g., `pip install -e .`), do that before running.
 
 If tests fail:
 - Diagnose the root cause
@@ -71,7 +74,7 @@ Do not proceed until all tests pass.
 
 Check for CI status if configured:
 ```bash
-gh pr checks <PR_NUMBER>
+gh pr checks $(gh pr view --json number -q .number)
 ```
 
 Output a final summary:
