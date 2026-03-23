@@ -45,7 +45,7 @@ hooks/hooks.json             — Auto-loaded hook wiring (7 events)
 hooks/scripts/               — Shell scripts → cortex-engine.js
 skills/cortex/SKILL.md       — Auto-invoked cortex advisor
 agents/cortex-advisor.md     — Deep analysis subagent (Haiku model)
-commands/                    — Slash commands (/cortex-status, /cortex-recommend, etc.)
+commands/                    — Slash commands (/cortex-status, /cortex-recommend, /review-and-ship, etc.)
 ```
 
 ### Brainiac Core Modules (`brainiac/`)
