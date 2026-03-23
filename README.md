@@ -1,6 +1,6 @@
-# Claude Brainiac
+# Claude Cortex
 
-A graph-based self-learning memory system for Claude Code. Turns flat knowledge files into an interconnected knowledge graph with semantic embeddings, typed relationships, and intent-aware retrieval.
+A knowledge graph and context intelligence system for Claude Code. Three products working together: **Brainiac** (semantic graph engine), **Cortex** (hook processor + Context Hub integration), and **ContextScore** (context quality scoring + snapshot/recovery).
 
 Built on research from:
 - **A-MEM** (NeurIPS 2025) — Zettelkasten-style atomic notes with dynamic linking
@@ -15,7 +15,10 @@ Built on research from:
 - **Intent-Aware Retrieval** — Query intent detection (what/why/when/who/how) weights graph traversal
 - **Memory Evolution** — Merge similar nodes, abstract clusters, prune stale entries
 - **Markdown Views** — Auto-generated human-readable views from graph state
-- **Claude Code Integration** — `/learn`, `/hypothesis`, `/brainiac` skills for seamless workflow
+- **Claude Code Integration** — `/learn`, `/hypothesis`, `/brainiac`, `/review-and-ship` skills for seamless workflow
+- **Context Scoring** — 7 analyzers for context quality (semantic relevance, redundancy, distractors, density, fragmentation, structure, economics)
+- **Snapshot/Recovery** — Survives context compaction by extracting decisions, entities, and patterns
+- **Context Hub** — Detects stale API patterns and tracks chub doc usage
 
 ## Installation
 
@@ -130,6 +133,7 @@ Queries are classified by intent, which weights edge traversal:
 - **`/brainiac`** — Direct graph queries: search, stats, consolidate
 - **`/learn`** — Extract session learnings into graph nodes with auto-linking
 - **`/hypothesis`** — Track testable claims with causal edge evidence
+- **`/review-and-ship`** — Deep code review with parallel agents, fix issues, run tests, create PR
 
 ### Global CLAUDE.md
 
