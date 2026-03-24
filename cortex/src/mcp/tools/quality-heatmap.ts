@@ -10,13 +10,13 @@ export interface QualityHeatmapResult extends QualityResult {
   health_status: "healthy" | "degraded" | "critical";
 }
 
-export function computeQualityHeatmap(
+export async function computeQualityHeatmap(
   context?: string,
   query: string = "general session quality",
-): QualityHeatmapResult {
+): Promise<QualityHeatmapResult> {
   const result = context
-    ? scoreContext(context, query)
-    : scoreLatestSnapshot(query);
+    ? await scoreContext(context, query)
+    : await scoreLatestSnapshot(query);
 
   // Extract radar chart arrays for easy visualization
   const labels = Object.keys(result.dimensions);

@@ -3,12 +3,12 @@
  */
 
 import { getSessionEntries, estimateTokensForEntry, type JournalEntry } from "../data/session-reader.js";
+import { COST_PER_TOKEN } from "../data/quality-bridge.js";
 
 export interface TimelineBucket {
   ts: string;
   minute_bucket: number;
   tokens_in: number;
-  tokens_out: number;
   cumulative: number;
   tool: string;
   event_count: number;
@@ -122,7 +122,6 @@ export function computeTokenTimeline(
       ts: bucketTs,
       minute_bucket: m,
       tokens_in: tokens,
-      tokens_out: 0,
       cumulative,
       tool: dominantTool,
       event_count: bucket?.entries.length ?? 0,
@@ -169,7 +168,7 @@ export function computeTokenTimeline(
       avg_tokens_per_minute: Math.round(totalTokens / durationMinutes),
       peak_tokens_per_minute: peakBucket?.tokens_in ?? 0,
       peak_time: peakBucket?.ts ?? "",
-      estimated_cost: totalTokens * 0.000005,  // $5 / 1M tokens
+      estimated_cost: totalTokens * COST_PER_TOKEN,
       by_tool: byTool,
     },
   };

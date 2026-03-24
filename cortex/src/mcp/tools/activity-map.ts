@@ -33,26 +33,32 @@ export interface ActivityMapResult {
   skills_used: string[];
 }
 
+/** Pre-parsed entry with cached timestamp for O(1) access */
+interface TimedEntry {
+  entry: JournalEntry;
+  timeMs: number;
+}
+
 /**
- * Estimate the duration of an event. Since hooks are async and we only
- * have timestamps, we estimate end time as the next event in the journal.
+ * Estimate activation durations using index-based next-event lookup.
+ * Entries must be pre-sorted by timeMs.
  */
-function estimateActivations(entries: JournalEntry[], filterFn: (e: JournalEntry) => boolean): Activation[] {
-  const filtered = entries.filter(filterFn);
+function estimateActivations(
+  timedEntries: TimedEntry[],
+  filterFn: (e: JournalEntry) => boolean,
+): Activation[] {
   const activations: Activation[] = [];
 
-  for (let i = 0; i < filtered.length; i++) {
-    const start = new Date(filtered[i].ts).getTime();
-    // End is either the next event or start + 5 seconds (default duration)
-    const nextEntry = entries.find(
-      e => new Date(e.ts).getTime() > start && e !== filtered[i]
-    );
-    const end = nextEntry
-      ? Math.min(new Date(nextEntry.ts).getTime(), start + 30_000)
-      : start + 5_000;
+  for (let i = 0; i < timedEntries.length; i++) {
+    if (!filterFn(timedEntries[i].entry)) continue;
+
+    const start = timedEntries[i].timeMs;
+    // Next event is simply i+1 (entries are sorted by time)
+    const nextTime = i + 1 < timedEntries.length ? timedEntries[i + 1].timeMs : start + 5_000;
+    const end = Math.min(nextTime, start + 30_000);
 
     activations.push({
-      start: filtered[i].ts,
+      start: timedEntries[i].entry.ts,
       end: new Date(end).toISOString(),
       duration_ms: end - start,
     });
@@ -75,6 +81,12 @@ export function computeActivityMap(
   const endTime = new Date(endTs).getTime();
   const durationMinutes = Math.max(1, Math.floor((endTime - startTime) / 60_000));
 
+  // Pre-parse timestamps once (avoids repeated Date parsing)
+  const timedEntries: TimedEntry[] = entries.map(e => ({
+    entry: e,
+    timeMs: new Date(e.ts).getTime(),
+  }));
+
   const tracks: ActivityTrack[] = [];
   const toolCounts: Record<string, number> = {};
 
@@ -90,7 +102,7 @@ export function computeActivityMap(
 
   // Create tool tracks
   for (const [name, groupEntries] of toolGroups) {
-    const activations = estimateActivations(entries, e => (e.tool ?? e.type) === name);
+    const activations = estimateActivations(timedEntries, e => (e.tool ?? e.type) === name);
     const totalDuration = activations.reduce((a, b) => a + b.duration_ms, 0);
 
     tracks.push({
@@ -104,10 +116,10 @@ export function computeActivityMap(
 
   // Hook tracks (from event field)
   if (includeHooks) {
-    const hookEntries = entries.filter(e => e.event);
     const hookGroups = new Map<string, JournalEntry[]>();
-    for (const entry of hookEntries) {
-      const hookName = entry.event!;
+    for (const entry of entries) {
+      if (!entry.event) continue;
+      const hookName = entry.event;
       if (!hookGroups.has(hookName)) hookGroups.set(hookName, []);
       hookGroups.get(hookName)!.push(entry);
     }
@@ -116,7 +128,7 @@ export function computeActivityMap(
       // Don't duplicate if same name as a tool track
       if (toolGroups.has(name)) continue;
 
-      const activations = estimateActivations(entries, e => e.event === name);
+      const activations = estimateActivations(timedEntries, e => e.event === name);
       tracks.push({
         name,
         type: "hook",
@@ -142,13 +154,13 @@ export function computeActivityMap(
   // Sort tracks by total count (most active first)
   tracks.sort((a, b) => b.total_count - a.total_count);
 
-  // Compute concurrency peak
-  const concurrencyPeak = computeConcurrencyPeak(entries);
+  // Compute concurrency peak using sliding window (O(n) since entries are sorted)
+  const concurrencyPeak = computeConcurrencyPeak(timedEntries);
 
   // Find busiest minute
   const minuteBuckets = new Map<number, number>();
-  for (const entry of entries) {
-    const minute = Math.floor((new Date(entry.ts).getTime() - startTime) / 60_000);
+  for (const { timeMs } of timedEntries) {
+    const minute = Math.floor((timeMs - startTime) / 60_000);
     minuteBuckets.set(minute, (minuteBuckets.get(minute) ?? 0) + 1);
   }
   let busiestMinute = 0;
@@ -172,23 +184,18 @@ export function computeActivityMap(
   };
 }
 
-function computeConcurrencyPeak(entries: JournalEntry[]): number {
-  if (entries.length < 2) return entries.length;
+/** Sliding window O(n) concurrency peak (entries must be sorted by timeMs) */
+function computeConcurrencyPeak(timedEntries: TimedEntry[]): number {
+  if (timedEntries.length < 2) return timedEntries.length;
 
-  // Count max events within a 1-second window
   let maxConcurrent = 1;
-  for (let i = 0; i < entries.length; i++) {
-    const windowStart = new Date(entries[i].ts).getTime();
-    let concurrent = 1;
-    for (let j = i + 1; j < entries.length; j++) {
-      const t = new Date(entries[j].ts).getTime();
-      if (t - windowStart <= 1000) {
-        concurrent++;
-      } else {
-        break;
-      }
+  let j = 0;
+  for (let i = 0; i < timedEntries.length; i++) {
+    // Advance j to include all entries within 1 second of entry[i]
+    while (j + 1 < timedEntries.length && timedEntries[j + 1].timeMs - timedEntries[i].timeMs <= 1000) {
+      j++;
     }
-    maxConcurrent = Math.max(maxConcurrent, concurrent);
+    maxConcurrent = Math.max(maxConcurrent, j - i + 1);
   }
 
   return maxConcurrent;

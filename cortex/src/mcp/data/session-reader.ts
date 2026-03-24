@@ -5,7 +5,8 @@
  * enriched format ({type, ts, tool, sid, tokens_est, event}).
  */
 
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -48,9 +49,27 @@ export function getHooksStateDir(): string {
   return join(homedir(), ".claude", "hooks", "state");
 }
 
+/** Validate session ID to prevent path traversal */
+function isValidSessionId(id: string): boolean {
+  return /^[a-zA-Z0-9_\-]+$/.test(id);
+}
+
 /**
- * Read session-journal.jsonl, parsing each line as JSON.
- * Skips malformed lines silently.
+ * Read session-journal.jsonl asynchronously. Skips malformed lines.
+ * Caps at the last 10,000 lines to prevent unbounded reads.
+ */
+export async function readJournalAsync(knowledgeDir?: string): Promise<JournalEntry[]> {
+  const dir = knowledgeDir ?? getKnowledgeDir();
+  const journalPath = join(dir, "session-journal.jsonl");
+
+  if (!existsSync(journalPath)) return [];
+
+  const content = await readFile(journalPath, "utf-8");
+  return parseJournalContent(content);
+}
+
+/**
+ * Read session-journal.jsonl synchronously (for backward compat in tests).
  */
 export function readJournal(knowledgeDir?: string): JournalEntry[] {
   const dir = knowledgeDir ?? getKnowledgeDir();
@@ -59,9 +78,16 @@ export function readJournal(knowledgeDir?: string): JournalEntry[] {
   if (!existsSync(journalPath)) return [];
 
   const content = readFileSync(journalPath, "utf-8");
+  return parseJournalContent(content);
+}
+
+function parseJournalContent(content: string): JournalEntry[] {
+  const lines = content.split("\n");
+  // Cap at last 10,000 lines to prevent unbounded parsing
+  const tail = lines.length > 10_000 ? lines.slice(-10_000) : lines;
   const entries: JournalEntry[] = [];
 
-  for (const line of content.split("\n")) {
+  for (const line of tail) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
@@ -79,8 +105,7 @@ export function readJournal(knowledgeDir?: string): JournalEntry[] {
  * Sessions are bounded by session_start and session_end entries.
  */
 export function getSessionEntries(sessionId?: string, knowledgeDir?: string): SessionBoundary {
-  // Validate sessionId to prevent path traversal
-  if (sessionId && !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+  if (sessionId && !isValidSessionId(sessionId)) {
     return { entries: [] };
   }
   const all = readJournal(knowledgeDir);
@@ -121,59 +146,55 @@ export function getSessionEntries(sessionId?: string, knowledgeDir?: string): Se
 }
 
 /**
- * Read session-edits-{SID}.json files from hooks state dir.
+ * Generic reader for session state files (session-edits-*, skills-used-*).
+ * Sorts by mtime to ensure "latest" is deterministic.
  */
-export function readEdits(sessionId?: string): SessionEditsData {
+function readSessionFile<T>(prefix: string, defaultValue: T, sessionId?: string): T {
+  if (sessionId && !isValidSessionId(sessionId)) {
+    return defaultValue;
+  }
+
   const stateDir = getHooksStateDir();
-  if (!existsSync(stateDir)) return { files: [], subsystems_touched: [] };
+  if (!existsSync(stateDir)) return defaultValue;
 
   try {
-    const files = readdirSync(stateDir).filter(f => f.startsWith("session-edits-"));
+    const files = readdirSync(stateDir).filter(f => f.startsWith(prefix));
 
     if (sessionId) {
-      const target = `session-edits-${sessionId}.json`;
+      const target = `${prefix}${sessionId}.json`;
       const match = files.find(f => f === target);
       if (match) {
         return JSON.parse(readFileSync(join(stateDir, match), "utf-8"));
       }
-      return { files: [], subsystems_touched: [] };
+      return defaultValue;
     }
 
-    // Return latest by modification time
-    if (files.length === 0) return { files: [], subsystems_touched: [] };
+    if (files.length === 0) return defaultValue;
 
-    const latest = files[files.length - 1];
+    // Sort by mtime (most recent last) for deterministic "latest"
+    const sorted = files
+      .map(f => ({ name: f, mtime: statSync(join(stateDir, f)).mtimeMs }))
+      .sort((a, b) => a.mtime - b.mtime);
+
+    const latest = sorted[sorted.length - 1].name;
     return JSON.parse(readFileSync(join(stateDir, latest), "utf-8"));
   } catch {
-    return { files: [], subsystems_touched: [] };
+    return defaultValue;
   }
+}
+
+/**
+ * Read session-edits-{SID}.json files from hooks state dir.
+ */
+export function readEdits(sessionId?: string): SessionEditsData {
+  return readSessionFile<SessionEditsData>("session-edits-", { files: [], subsystems_touched: [] }, sessionId);
 }
 
 /**
  * Read skills-used-{SID}.json files from hooks state dir.
  */
 export function readSkills(sessionId?: string): string[] {
-  const stateDir = getHooksStateDir();
-  if (!existsSync(stateDir)) return [];
-
-  try {
-    const files = readdirSync(stateDir).filter(f => f.startsWith("skills-used-"));
-
-    if (sessionId) {
-      const target = `skills-used-${sessionId}.json`;
-      const match = files.find(f => f === target);
-      if (match) {
-        return JSON.parse(readFileSync(join(stateDir, match), "utf-8"));
-      }
-      return [];
-    }
-
-    if (files.length === 0) return [];
-    const latest = files[files.length - 1];
-    return JSON.parse(readFileSync(join(stateDir, latest), "utf-8"));
-  } catch {
-    return [];
-  }
+  return readSessionFile<string[]>("skills-used-", [], sessionId);
 }
 
 /**

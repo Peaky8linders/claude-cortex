@@ -32,8 +32,8 @@ describe("MCP tool handlers", () => {
     expect(result.duration_minutes).toBeGreaterThanOrEqual(0);
   });
 
-  it("quality heatmap returns valid structure without Python", () => {
-    const result = computeQualityHeatmap("test context");
+  it("quality heatmap returns valid structure without Python", async () => {
+    const result = await computeQualityHeatmap("test context");
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.dimensions).toBeDefined();
     expect(result.economics).toBeDefined();
