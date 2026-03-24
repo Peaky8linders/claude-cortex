@@ -1,180 +1,179 @@
 # Claude Cortex
 
-A knowledge graph and context intelligence system for Claude Code. Three products working together: **Brainiac** (semantic graph engine), **Cortex** (hook processor + Context Hub integration), and **ContextScore** (context quality scoring + snapshot/recovery).
+[![CI](https://github.com/Peaky8linders/claude-cortex/actions/workflows/ci.yml/badge.svg)](https://github.com/Peaky8linders/claude-cortex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Plugin Version](https://img.shields.io/badge/plugin-v0.3.0-green.svg)](.claude-plugin/plugin.json)
 
-Built on research from:
-- **A-MEM** (NeurIPS 2025) — Zettelkasten-style atomic notes with dynamic linking
-- **MAGMA** (2026) — Multi-graph architecture with intent-aware routing
-- **Graph-Based Agent Memory Survey** (2026) — Hybrid knowledge + experience graph lifecycle
+A **Claude Code plugin** that gives Claude persistent memory, context intelligence, and session observability. Three modules working together:
 
-## Features
+| Module | Language | What it does |
+|--------|----------|-------------|
+| **Brainiac** | Python | Semantic knowledge graph with local embeddings, auto-linking, and intent-aware retrieval |
+| **Cortex** | TypeScript | Hook processor that tracks sessions + MCP server with 4 dashboard tools |
+| **ContextScore** | Python | 7-dimension context quality scoring with snapshot/recovery |
 
-- **Knowledge Graph** — Nodes with 7 A-MEM fields, 4 MAGMA edge types (semantic, temporal, causal, entity)
-- **Local Embeddings** — `all-MiniLM-L6-v2` (384-dim) for zero-API-cost semantic search
-- **Auto-Linking** — New nodes automatically linked via cosine similarity, temporal proximity, and shared entities
-- **Intent-Aware Retrieval** — Query intent detection (what/why/when/who/how) weights graph traversal
-- **Memory Evolution** — Merge similar nodes, abstract clusters, prune stale entries
-- **Markdown Views** — Auto-generated human-readable views from graph state
-- **Claude Code Integration** — `/learn`, `/hypothesis`, `/brainiac`, `/review-and-ship` skills for seamless workflow
-- **Context Scoring** — 7 analyzers for context quality (semantic relevance, redundancy, distractors, density, fragmentation, structure, economics)
-- **Snapshot/Recovery** — Survives context compaction by extracting decisions, entities, and patterns
-- **Context Hub** — Detects stale API patterns and tracks chub doc usage
+Built on research from [A-MEM](https://arxiv.org/abs/2505.10982) (NeurIPS 2025), [MAGMA](https://arxiv.org/abs/2601.07453) (2026), [SmartSearch](https://arxiv.org/abs/2603.15599) (Derehag et al. 2026), and [LCM](https://arxiv.org/abs/2602.14345) (Ehrlich 2026).
 
-## Installation
+## Install as Claude Code Plugin
 
 ```bash
-pip install -e .
+# From your project directory:
+claude plugin add github:Peaky8linders/claude-cortex
+
+# Or clone and install manually:
+git clone https://github.com/Peaky8linders/claude-cortex.git
+cd claude-cortex
+pip install -e .                    # Python dependencies (brainiac + contextscore)
+cd cortex && npm ci && npm run build  # TypeScript dependencies (cortex engine + MCP server)
 ```
 
-Or install dependencies directly:
-```bash
-pip install sentence-transformers numpy
-```
+After install, the plugin auto-registers:
+- **7 hooks** — session tracking, context snapshots, compaction recovery
+- **14 slash commands** — `/learn`, `/hypothesis`, `/cortex-status`, `/review-and-ship`, etc.
+- **4 MCP tools** — token timeline, activity map, quality heatmap, graph explorer
+- **1 agent** — cortex-advisor for deep graph analysis
 
-## Quick Start
+## What You Get
 
-### 1. Set up the knowledge directory
+### Persistent Memory Across Sessions
+Claude forgets everything between sessions. Cortex doesn't. Use `/learn` at the end of a session to capture patterns, decisions, and solutions into a knowledge graph. Next session, Claude automatically searches the graph and applies what it learned.
 
-```bash
-mkdir -p ~/.claude/knowledge/graph
-```
+### Session Dashboard (MCP Tools)
+Query your session in real-time via 4 MCP tools:
 
-### 2. Copy the engine
+| Tool | What it shows |
+|------|--------------|
+| `cortex_token_timeline` | Minute-by-minute token usage with spike detection and cost estimates |
+| `cortex_activity_map` | Gantt-like timeline of which hooks, skills, and tools fired |
+| `cortex_quality_heatmap` | 7-dimension radar chart of context quality (semantic relevance, redundancy, economics, etc.) |
+| `cortex_graph_explorer` | Interactive force-directed graph visualization (JSON for terminal, HTML for browser) |
 
-```bash
-cp -r brainiac/ ~/.claude/knowledge/brainiac/
-```
+### Context Compaction Survival
+When Claude's context window compacts, critical decisions and patterns are lost. Cortex snapshots them before compaction and re-injects them after — lossless context management.
 
-### 3. Migrate existing markdown knowledge (optional)
+### Autonomous Workflows
+| Level | Command | What it does |
+|-------|---------|-------------|
+| L3 | `/run-tasks` | Execute task YAML with quality gating, each task in its own subagent |
+| L4 | `/ralph-start` | Autonomous loop — Stop hook re-feeds prompt, quality-gated at score < 30 |
+| L5 | `/auto-research` | Structured experiment runner with `/hypothesis` tracking and eval loops |
 
-If you have existing knowledge files in `~/.claude/knowledge/patterns/`, etc.:
+## Slash Commands
 
-```bash
-cd ~/.claude/knowledge && python -m brainiac migrate
-```
-
-### 4. Start using it
-
-```bash
-# Search the knowledge graph
-cd ~/.claude/knowledge && python -m brainiac search "testing patterns"
-
-# Add a new node
-python -m brainiac add pattern "Always run full test suite before and after changes to catch regressions"
-
-# View graph stats
-python -m brainiac stats
-
-# Find consolidation opportunities
-python -m brainiac consolidate
-
-# Regenerate markdown views
-python -m brainiac render
-```
+| Command | Purpose |
+|---------|---------|
+| `/learn` | Extract session learnings into graph nodes with auto-linking |
+| `/hypothesis` | Track testable claims with causal edge evidence |
+| `/brainiac` | Direct graph CLI: search, stats, add, consolidate |
+| `/cortex-status` | Graph health: node/edge counts by type |
+| `/cortex-recommend` | Actionable optimization suggestions |
+| `/cortex-dashboard` | Open interactive graph visualization |
+| `/cortex-graph` | Full graph dump |
+| `/cortex-snapshot` | Save graph state to disk |
+| `/review-and-ship` | Deep code review (3 parallel agents) + fix + test + PR |
+| `/run-tasks` | Execute task list with quality gating |
+| `/ralph-start` | Start autonomous loop |
+| `/ralph-stop` | Stop autonomous loop |
+| `/ralph-status` | Monitor active loop |
+| `/auto-research` | Structured experiment runner |
 
 ## Architecture
 
 ```
-~/.claude/knowledge/
-├── brainiac/              # Graph engine (Python package)
-│   ├── graph.py           # Core: nodes, edges, CRUD, queries
-│   ├── embeddings.py      # Local sentence-transformer embeddings
-│   ├── linker.py          # Auto-linking: semantic, temporal, causal, entity
-│   ├── consolidator.py    # Memory evolution: merge, abstract, prune
-│   ├── retriever.py       # Intent-aware multi-hop retrieval
-│   ├── renderer.py        # Graph -> markdown view generation
-│   └── cli.py             # CLI entry point
-├── graph/                 # Graph data store
-│   ├── nodes.json         # All memory nodes
-│   ├── edges.json         # All relationship edges
-│   └── embeddings.npz     # Compressed embedding vectors
-└── views/                 # Auto-generated markdown views
+claude-cortex/
+├── .claude-plugin/plugin.json     Plugin manifest (auto-discovered by Claude Code)
+├── mcp-config.json                MCP server registration
+├── hooks/
+│   ├── hooks.json                 7 hook event definitions
+│   └── scripts/                   Shell handlers for each hook event
+├── commands/                      14 slash command definitions (.md)
+├── skills/cortex/SKILL.md         Auto-invoked cortex advisor skill
+├── agents/cortex-advisor.md       Deep analysis subagent (Haiku model)
+│
+├── brainiac/                      Python: semantic graph engine
+│   ├── graph.py                   Core data model (nodes, edges, JSON CRUD)
+│   ├── embeddings.py              Local sentence-transformer (384-dim)
+│   ├── linker.py                  Auto-linking (semantic, temporal, entity)
+│   ├── retriever.py               Intent-aware multi-hop BFS retrieval
+│   ├── consolidator.py            Propose-only: merge, abstract, prune
+│   └── cli.py                     CLI entry point
+│
+├── cortex/                        TypeScript: hook processor + MCP server
+│   ├── src/engine/                Hook processor core
+│   ├── src/hooks/                 Event routing
+│   ├── src/graph/                 Knowledge graph wrapper
+│   ├── src/mcp/                   MCP server + 4 dashboard tools
+│   └── dist/                      Pre-built output (committed for portability)
+│
+├── contextscore/                  Python: 7-dimension quality scoring
+│   ├── src/contextscore/analyzers/  7 quality analyzers
+│   ├── src/contextscore/scorer.py   Weighted aggregation
+│   └── src/contextscore/snapshot/   Extract + store + recover context
+│
+├── dashboard/                     Self-contained HTML visualizations
+└── scripts/                       tmux launcher for autonomous sessions
 ```
 
-### Node Structure (A-MEM inspired)
-
-Each memory node has 7 core fields:
-
-| Field | Description |
-|-------|------------|
-| `id` | Unique identifier (e.g., `pat-001`, `hyp-003`) |
-| `content` | Core knowledge text |
-| `timestamp` | ISO 8601 creation time |
-| `keywords` | Auto-extracted key concepts |
-| `tags` | Category tags (type, projects, domain) |
-| `context` | Semantic description for linking |
-| `embedding` | 384-dim vector for similarity search |
-
-### Edge Types (MAGMA-inspired)
-
-| Type | Meaning | Creation |
-|------|---------|----------|
-| `semantic` | Conceptually related | Auto: cosine similarity > 0.7 |
-| `temporal` | Learned in sequence | Auto: timestamp proximity + same project |
-| `causal` | X led to discovering Y | Manual: via `/learn` |
-| `entity` | Share project/domain | Auto: tag overlap |
-
-### Intent-Aware Retrieval
-
-Queries are classified by intent, which weights edge traversal:
-
-| Intent | Trigger Words | Prioritized Edges |
-|--------|--------------|-------------------|
-| `what` | default | semantic, entity |
-| `why` | reason, cause, because | causal, temporal |
-| `when` | timeline, before, after | temporal, causal |
-| `who` | project, team, where | entity, semantic |
-| `how` | approach, method, technique | semantic, causal |
-
-## Claude Code Integration
-
-### Skills (copy to `~/.claude/commands/`)
-
-- **`/brainiac`** — Direct graph queries: search, stats, consolidate
-- **`/learn`** — Extract session learnings into graph nodes with auto-linking
-- **`/hypothesis`** — Track testable claims with causal edge evidence
-- **`/review-and-ship`** — Deep code review with parallel agents, fix issues, run tests, create PR
-
-### Global CLAUDE.md
-
-Add to `~/.claude/CLAUDE.md`:
-
-```markdown
-## Brainiac Knowledge Graph
-
-You have a persistent, cross-project knowledge graph at `~/.claude/knowledge/`.
-
-### Quick reference
-cd ~/.claude/knowledge && python -m brainiac search "query"    # semantic search
-cd ~/.claude/knowledge && python -m brainiac stats              # graph overview
-cd ~/.claude/knowledge && python -m brainiac consolidate        # find merge/prune candidates
-cd ~/.claude/knowledge && python -m brainiac add <type> "text"  # add node
-```
-
-## How It Works
+### Hook Lifecycle
 
 ```
-Session Start -> Search graph for relevant patterns
-     |
-Session Work -> Track patterns, errors, solutions
-     |
-Session End -> /learn proposes entries -> User approves -> Graph nodes created
-     |                                                         |
-     |                                          Auto-link (semantic + temporal + entity)
-     |                                                         |
-Next Session -> Richer graph -> Better search results -> Better decisions
+SessionStart ──► Load graph stats, inject quality summary
+     │
+PostToolUse ───► Track tool events async (zero latency)
+     │            ├── Write/Edit → file + subsystem tracking
+     │            ├── Bash → command + test detection
+     │            └── Read → compaction signal detection
+     │
+PreCompact ────► Snapshot decisions, entities, files to disk
+PostCompact ───► Re-inject recovery pointers (lossless)
+     │
+Stop ──────────► Persist graph, output summary, check Ralph loop
 ```
 
-## Node Types
+## Knowledge Graph
 
+### Node Types
 | Type | Prefix | Purpose |
 |------|--------|---------|
-| `pattern` | `pat-` | Reusable approaches that work |
-| `antipattern` | `anti-` | What NOT to do, with evidence |
-| `workflow` | `wf-` | Effective Claude Code workflows |
-| `hypothesis` | `hyp-` | Testable claims being validated |
-| `solution` | `sol-` | Proven debugging solutions |
-| `decision` | `dec-` | Architecture decisions with rationale |
+| Pattern | `pat-` | Reusable approaches that work |
+| Antipattern | `anti-` | What NOT to do, with evidence |
+| Workflow | `wf-` | Effective Claude Code workflows |
+| Hypothesis | `hyp-` | Testable claims being validated |
+| Solution | `sol-` | Proven debugging solutions |
+| Decision | `dec-` | Architecture decisions with rationale |
+
+### Edge Types
+| Type | Meaning | Creation |
+|------|---------|----------|
+| `semantic` | Conceptually related | Auto: cosine similarity >= 0.7 |
+| `temporal` | Learned in sequence | Auto: same project, 7-day window |
+| `causal` | X led to discovering Y | Manual: via `/learn` |
+| `entity` | Share project/domain | Auto: tag overlap >= 2 |
+
+## Development
+
+```bash
+# TypeScript (cortex engine + MCP server)
+cd cortex && npm ci && npm run build && npx vitest run
+
+# Python (brainiac graph engine)
+pip install -e . && pytest tests/ --ignore=tests/shell -v
+
+# Python (contextscore)
+cd contextscore && pip install -e . && pytest tests/ -v
+
+# Shell tests (hooks + autonomy scripts)
+bash tests/shell/run_all.sh
+```
+
+## Design Principles
+
+- **JSON persistence, not SQLite** — zero deps, graph stays under 200KB
+- **Async hooks for PostToolUse** — zero latency impact on Claude's tool loop
+- **Sync hooks for context injection** — SessionStart and PostCompact must complete before Claude continues
+- **Propose-only consolidation** — never auto-merge or auto-delete graph nodes
+- **Pre-built dist/ committed** — plugin works without requiring `npm install`
+- **No database, no Docker, no daemon** — one install is the entire setup
 
 ## License
 

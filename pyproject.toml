@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-cortex"
-version = "0.1.0"
+version = "0.3.0"
 description = "Graph-based self-learning memory system for Claude Code"
 readme = "README.md"
 license = {text = "MIT"}
