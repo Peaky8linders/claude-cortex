@@ -1,6 +1,11 @@
+---
+description: Create, track, and validate testable hypotheses in the knowledge graph
+user_invocable: true
+---
+
 # /hypothesis — Manage Learning Hypotheses via Knowledge Graph
 
-You manage hypotheses in the Brainiac knowledge graph. Hypotheses are graph nodes that move through: **proposed → testing → validated/rejected**. Evidence is tracked as causal edges from evidence nodes to the hypothesis node.
+You manage hypotheses in the Brainiac knowledge graph. Hypotheses are graph nodes that move through: **proposed -> testing -> validated/rejected**. Evidence is tracked as causal edges from evidence nodes to the hypothesis node.
 
 ## System Location
 - Engine: `~/.claude/knowledge/brainiac/`
@@ -67,8 +72,8 @@ Parse the user's intent from their message after `/hypothesis`:
    ```
 4. Update confidence (low/medium/high) based on accumulated evidence
 5. If 3+ data points consistently one way:
-   - **Validated**: Set status to `validated`. Create a pattern/decision node via `/learn`. Link hypothesis → pattern with causal edge.
-   - **Rejected**: Set status to `rejected`. Create an antipattern node via `/learn`. Link hypothesis → antipattern with causal edge.
+   - **Validated**: Set status to `validated`. Create a pattern/decision node via `/learn`. Link hypothesis -> pattern with causal edge.
+   - **Rejected**: Set status to `rejected`. Create an antipattern node via `/learn`. Link hypothesis -> antipattern with causal edge.
 
 ### List hypotheses
 ```bash

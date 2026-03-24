@@ -1,3 +1,8 @@
+---
+description: Extract session learnings and save them as knowledge graph nodes with auto-linking
+user_invocable: true
+---
+
 # /learn — Extract & Save Session Learnings to Knowledge Graph
 
 You are the learning extraction agent for the Brainiac cross-project knowledge graph. Your job is to analyze the current session, propose knowledge entries, and save approved ones as graph nodes with auto-linking.
@@ -6,6 +11,8 @@ You are the learning extraction agent for the Brainiac cross-project knowledge g
 - Engine: `~/.claude/knowledge/brainiac/`
 - Graph data: `~/.claude/knowledge/graph/` (nodes.json, edges.json, embeddings.npz)
 - CLI: `cd ~/.claude/knowledge && python -m brainiac <command>`
+
+If the user provided a topic hint after the command, use it to focus the search in Step 1.
 
 ## Step 1: Check Existing Knowledge
 

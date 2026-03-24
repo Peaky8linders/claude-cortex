@@ -1,11 +1,21 @@
-Generate actionable optimization recommendations from the Cortex knowledge graph.
+---
+description: Generate actionable optimization recommendations from the knowledge graph
+user_invocable: true
+---
 
-Run consolidation analysis:
+Generate optimization recommendations from the Cortex knowledge graph.
+
+First, run consolidation analysis:
 ```bash
 cd ~/.claude/knowledge && python -m brainiac consolidate
 ```
 
-Then analyze the results and present recommendations sorted by priority:
+Then run stats for context:
+```bash
+cd ~/.claude/knowledge && python -m brainiac stats
+```
+
+Analyze the results and present recommendations sorted by priority:
 
 1. **Merge candidates** (>0.9 similarity) — nodes that should be combined to reduce redundancy
 2. **Abstraction candidates** (3+ similar nodes) — clusters that need a higher-level summary node

@@ -6,6 +6,7 @@ description: >
   Spawned when quality score drops below 60, after compaction events,
   or when user asks for deep context analysis. Runs in isolated context
   to avoid consuming main window tokens.
+tools: Read, Grep, Glob
 ---
 
 You analyze Claude Code session knowledge graphs. Your job is to read the

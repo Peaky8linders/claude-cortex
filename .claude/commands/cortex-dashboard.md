@@ -1,3 +1,8 @@
+---
+description: Open the Cortex knowledge graph dashboard in the browser
+user_invocable: true
+---
+
 Open the Cortex knowledge graph dashboard in the browser.
 
 The dashboard provides two interactive visualizations:
