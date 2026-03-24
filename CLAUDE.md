@@ -33,7 +33,7 @@ cd contextscore && pytest tests/ -v
 .claude/rules/                   — Path-scoped instruction modules
 .claude/commands/                — 14 slash commands
 .claude/skills/cortex/           — Auto-invoked cortex advisor + support docs
-.claude/agents/                  — cortex-advisor (haiku), graph-maintainer (haiku)
+.claude/agents/                  — cortex-advisor, graph-maintainer (haiku), work-evaluator (sonnet)
 mcp-config.json                  — MCP server registration (cortex-dashboard)
 hooks/hooks.json                 — Hook wiring (7 events)
 hooks/scripts/                   — Shell hook handlers
@@ -62,11 +62,16 @@ hooks/scripts/                   — Shell hook handlers
 | L4 | `/ralph-start` | Autonomous loop via Stop hook re-feed |
 | L5 | `/auto-research` | Experiment runner with hypothesis tracking |
 
+### Generator-Evaluator Pattern
+- work-evaluator agent independently grades output (5 dimensions, 0-100)
+- Sprint contracts align generator + evaluator before coding begins
+- One retry on NEEDS_WORK (40-59), skip on FAIL (<40)
+
 ### Safety
-- Quality gate halts at score < 30
+- Dual quality gate: 30% graph health + 70% work quality, halts at composite < 40
 - `/freeze` scopes edits to specified directory
 - Git push blocked — user reviews and pushes manually
-- Ralph loop defaults to 50 max iterations
+- Ralph loop defaults to 50 max iterations, supports `--reset-strategy reset`
 - Destructive commands blocked in settings.json deny list
 
 ## Research Foundations
@@ -75,3 +80,4 @@ hooks/scripts/                   — Shell hook handlers
 - **MAGMA** — Multi-graph with intent-aware routing + typed edges
 - **SmartSearch** — Score-adaptive truncation; 8.5x token reduction
 - **LCM** — Lossless Context Management; hierarchical DAG
+- **Anthropic Harness Design** — Generator-evaluator separation; context resets; sprint contracts

@@ -1,12 +1,12 @@
 ---
 name: run-tasks
-description: Looping subagent runner — reads a task list and executes each in an isolated subagent with Cortex quality gating
+description: Looping subagent runner — reads a task list and executes each in an isolated subagent with generator-evaluator pattern and dual quality gating
 user_invocable: true
 ---
 
 # /run-tasks — Autonomous Subagent Task Runner
 
-You are an autonomous task runner. You read a task list, execute each task in an isolated subagent, and continue until all tasks are complete or a quality gate halts you.
+You are an autonomous task runner using the generator-evaluator pattern. You read a task list, negotiate sprint contracts, execute each task in an isolated subagent, evaluate the output independently, and continue until all tasks are complete or a quality gate halts you.
 
 ## Input
 
@@ -44,12 +44,22 @@ For each task in order:
 
 1. **Mark in_progress** (TodoWrite)
 
-2. **Search for relevant patterns**:
+2. **Search for relevant patterns and antipatterns**:
    ```bash
    cd ~/.claude/knowledge && python -m brainiac search "TASK_NAME"
    ```
 
-3. **Spawn subagent** (Agent tool) with this prompt template:
+3. **Sprint contract negotiation** (generator-evaluator pattern):
+   Before any coding, define testable success criteria for this task:
+   - What specific behavior should change?
+   - What test assertions would prove it works?
+   - What edge cases must be handled?
+   - What files should be modified (and what should NOT be touched)?
+
+   Write the sprint contract as a brief checklist (3-7 items). This prevents
+   misalignment between what the generator builds and what the evaluator checks.
+
+4. **Spawn generator subagent** (Agent tool) with this prompt template:
    ```
    You are executing a single task autonomously.
 
@@ -57,26 +67,45 @@ For each task in order:
    SCOPE: {task.scope or "entire project"}
    RELEVANT CONTEXT FROM KNOWLEDGE GRAPH: {search_results}
 
+   SPRINT CONTRACT (you must satisfy ALL criteria):
+   {sprint_contract_checklist}
+
    Instructions:
-   - Complete the task fully
+   - Complete the task fully, satisfying every sprint contract criterion
    - Run tests if provided: {task.tests}
    - If tests fail, fix the issues
    - Do NOT commit — the parent will handle commits
    - Output a summary of what you changed and why
    ```
 
-4. **After subagent returns**:
-   - Review the changes (git diff)
-   - Run the task's test command if specified
-   - If tests pass: stage and commit with message: `[run-tasks] {task.name}`
-   - If tests fail: log the failure, skip to next task
-   - Mark task completed (TodoWrite)
+5. **Spawn evaluator subagent** (Agent tool, using work-evaluator agent):
+   After the generator returns, spawn the work-evaluator to independently grade:
+   ```
+   Evaluate the changes just made for this task.
 
-5. **Quality gate check**:
+   TASK: {task.name}
+   SPRINT CONTRACT:
+   {sprint_contract_checklist}
+
+   Run: git diff HEAD to see uncommitted changes
+   Run tests if provided: {task.tests}
+   Grade against the 5 dimensions (correctness, architecture, completeness, safety, craft).
+   Check each sprint contract criterion — did the generator satisfy it?
+   Output the structured evaluation report with WORK_EVAL_SCORE=XX.
+   ```
+
+6. **Process evaluation result**:
+   - Parse `WORK_EVAL_SCORE=XX` from evaluator output
+   - If score >= 60 (PASS): stage and commit with message: `[run-tasks] {task.name}`
+   - If score 40-59 (NEEDS_WORK): give generator ONE retry with evaluator feedback
+   - If score < 40 (FAIL): log the failure, skip to next task
+   - Mark task status (TodoWrite)
+
+7. **Dual quality gate check**:
    ```bash
    cd ~/.claude/knowledge && python -m brainiac quality
    ```
-   The command outputs a single number (0-100). If quality < 30:
+   Combined with work output heuristics. If composite < 40:
    - HALT execution immediately
    - Report: "Quality gate triggered (score: X). Halting after task N of M."
    - List remaining tasks that were not executed
@@ -87,20 +116,22 @@ After all tasks (or halt):
 1. Run the full test suite for affected areas
 2. Output a summary table:
    ```
-   | # | Task | Status | Commit |
-   |---|------|--------|--------|
-   | 1 | Add validation | Done | abc1234 |
-   | 2 | Fix edge weights | Done | def5678 |
-   | 3 | Update docs | Skipped (test fail) | — |
+   | # | Task | Generator | Evaluator | Status | Commit |
+   |---|------|-----------|-----------|--------|--------|
+   | 1 | Add validation | Done | 78 PASS | Committed | abc1234 |
+   | 2 | Fix edge weights | Done | 52 NEEDS_WORK | Retry+Committed | def5678 |
+   | 3 | Update docs | Done | 35 FAIL | Skipped | — |
    ```
-3. Report total: X/Y tasks completed, Z commits made
+3. Report total: X/Y tasks completed, Z commits made, W retries needed
 4. Suggest `/learn` if 3+ tasks completed (substantial session)
 5. Do NOT push — remind user to review commits and push manually
 
 ## Safety Rules
-- Each subagent runs in its own context (no main context pollution)
+- Generator and evaluator run in separate contexts (no self-evaluation bias)
+- Sprint contracts prevent misalignment before coding begins
+- Evaluator gives generators ONE retry with specific feedback (not infinite loops)
 - `/freeze` scopes edits if task has a `scope` field
-- Quality gate halts at score < 30 (moderate risk setting)
+- Dual quality gate (30% graph + 70% work) halts at composite < 40
 - Git push is NEVER automated — user reviews accumulated commits
 - Failed tasks are skipped, not retried infinitely
 - Maximum 20 tasks per run (prevent runaway)
