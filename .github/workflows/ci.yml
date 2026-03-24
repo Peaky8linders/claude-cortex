@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typescript:
+    name: TypeScript (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cortex
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npm run build
+      - run: npx vitest run
+
+  python-brainiac:
+    name: Python (brainiac tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+      - run: pip install pytest
+      - run: pytest tests/ --ignore=tests/shell -v
+
+  python-contextscore:
+    name: Python (contextscore tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contextscore
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+      - run: pip install pytest
+      - run: pytest tests/ -v

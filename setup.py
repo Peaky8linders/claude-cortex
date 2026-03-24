@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="claude-cortex",
-    version="0.1.0",
+    version="0.3.0",
     description="Graph-based self-learning memory system for Claude Code",
     author="Peaky8linders",
     url="https://github.com/Peaky8linders/claude-cortex",
