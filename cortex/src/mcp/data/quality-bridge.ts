@@ -5,11 +5,18 @@
  * This bridge calls it via subprocess and parses the JSON output.
  */
 
-import { execSync } from "child_process";
+import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, openSync, closeSync, constants } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
+
+/** Cost per token at $5/1M tokens */
+export const COST_PER_TOKEN = 0.000005;
 
 export interface QualityDimension {
   score: number;
@@ -45,7 +52,7 @@ export interface QualityResult {
  * Score context using Python contextscore module.
  * Falls back to a lightweight local analysis if Python is unavailable.
  */
-export function scoreContext(context: string, query: string = "general session quality"): QualityResult {
+export async function scoreContext(context: string, query: string = "general session quality"): Promise<QualityResult> {
   // Pass query via env var to avoid code injection (never interpolate into Python source)
   const pythonScript = `
 import json, sys, os
@@ -99,19 +106,19 @@ except Exception as e:
     closeSync(fd);
 
     try {
-      const result = execSync(`python3 "${tmpScript}"`, {
-        input: context,
+      const { stdout } = await execFileAsync("python3", [tmpScript], {
         encoding: "utf-8",
         timeout: 10_000,
         maxBuffer: 1024 * 1024,
         env: { ...process.env, CORTEX_QUERY: query },
       });
-      return JSON.parse(result.trim());
+      return JSON.parse(stdout.trim());
     } finally {
       try { unlinkSync(tmpScript); } catch { /* cleanup best-effort */ }
     }
-  } catch {
-    // Fallback: local analysis when Python contextscore is unavailable
+  } catch (err) {
+    // Log warning when Python bridge fails, then fall back to local analysis
+    console.error("[cortex] Python contextscore unavailable, using local analysis:", err instanceof Error ? err.message : String(err));
     return analyzeLocally(context);
   }
 }
@@ -119,7 +126,7 @@ except Exception as e:
 /**
  * Read the latest context snapshot and score it.
  */
-export function scoreLatestSnapshot(query: string = "general session quality"): QualityResult {
+export async function scoreLatestSnapshot(query: string = "general session quality"): Promise<QualityResult> {
   const snapshotDir = join(homedir(), ".claude", "context-snapshots");
 
   if (!existsSync(snapshotDir)) {
@@ -147,7 +154,7 @@ export function scoreLatestSnapshot(query: string = "general session quality"): 
     ];
 
     const context = contextParts.join("\n");
-    return scoreContext(context, query);
+    return await scoreContext(context, query);
   } catch {
     return analyzeLocally("");
   }
@@ -222,7 +229,7 @@ function analyzeLocally(context: string): QualityResult {
       total_tokens: tokens,
       wasted_tokens: wastedTokens,
       waste_percentage: tokens > 0 ? Math.round(wastedTokens / tokens * 100) : 0,
-      estimated_cost: tokens * 0.000005,
+      estimated_cost: tokens * COST_PER_TOKEN,
     },
     issues: Object.entries(dimensions)
       .filter(([, d]) => d.top_issue)

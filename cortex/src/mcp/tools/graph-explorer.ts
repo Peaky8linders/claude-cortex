@@ -32,11 +32,17 @@ export interface GraphExplorerEdge {
   weight: number;
 }
 
+export interface GraphMetricsSummary {
+  qualityScore: number;
+  tokenBudget: GraphMetrics["tokenBudget"];
+  clusterCount: number;
+}
+
 export interface GraphExplorerJsonResult {
   mode: "json";
   nodes: GraphExplorerNode[];
   edges: GraphExplorerEdge[];
-  metrics: GraphMetrics;
+  metrics: GraphMetricsSummary;
   clusters: ClusterInfo[];
 }
 
@@ -143,23 +149,27 @@ export async function computeGraphExplorer(
   const graph = loadBrainiacGraph(dir);
 
   let nodes = graph.getAllNodes();
-  let edges = graph.getAllEdges();
 
   // Filter by type if requested
   if (filterType) {
-    const filteredType = filterType as GraphNode["type"];
-    nodes = nodes.filter(n => n.type === filteredType);
-    const nodeIds = new Set(nodes.map(n => n.id));
-    edges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+    const validTypes: GraphNode["type"][] = ["file", "function", "tool", "decision", "error", "agent", "pattern", "hook", "skill", "query"];
+    if (!validTypes.includes(filterType as GraphNode["type"])) {
+      return mode === "json"
+        ? { mode: "json", nodes: [], edges: [], metrics: { qualityScore: 0, tokenBudget: graph.computeMetrics().tokenBudget, clusterCount: 0 }, clusters: [] }
+        : { mode: "html", path: "", message: `Invalid filter_type: ${filterType}`, node_count: 0, edge_count: 0 };
+    }
+    nodes = nodes.filter(n => n.type === (filterType as GraphNode["type"]));
   }
 
   // Limit nodes (keep highest access count)
   if (nodes.length > maxNodes) {
     nodes.sort((a, b) => b.accessCount - a.accessCount);
     nodes = nodes.slice(0, maxNodes);
-    const nodeIds = new Set(nodes.map(n => n.id));
-    edges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
   }
+
+  // Filter edges once after all node filtering is done (DRY)
+  const nodeIds = new Set(nodes.map(n => n.id));
+  let edges = graph.getAllEdges().filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
 
   const metrics = graph.computeMetrics();
 
@@ -189,12 +199,14 @@ export async function computeGraphExplorer(
   }));
 
   if (mode === "json") {
+    // Return lightweight summary to avoid oversized payloads
+    const { clusters, qualityScore, tokenBudget } = metrics;
     return {
       mode: "json",
       nodes: explorerNodes,
       edges: explorerEdges,
-      metrics,
-      clusters: metrics.clusters,
+      metrics: { qualityScore, tokenBudget, clusterCount: clusters.length },
+      clusters,
     };
   }
 
@@ -257,6 +269,7 @@ function buildInlineHtml(graphDataJson: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'">
   <title>Cortex Graph Explorer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }

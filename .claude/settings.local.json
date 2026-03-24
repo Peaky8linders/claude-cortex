@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x \"D:\\\\Claude Projects\\\\claude-cortex\\\\hooks\\\\scripts\\\\ralph-loop.sh\")",
+      "Bash(chmod +x \"D:/Claude Projects/claude-cortex/scripts/tmux-launch.sh\")",
+      "Bash(py -3.12 -m pytest tests/ --ignore=tests/shell -v)",
+      "Bash(bash tests/shell/run_all.sh)",
+      "Bash(gh pr:*)",
+      "WebFetch(domain:arxiv.org)",
+      "WebSearch",
+      "WebFetch(domain:academy.dair.ai)",
+      "Bash(py -3.12 -m pytest tests/test_reranker.py -v)"
+    ]
+  }
+}

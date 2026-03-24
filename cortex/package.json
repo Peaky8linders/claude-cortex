@@ -1,6 +1,6 @@
 {
   "name": "cortex-cc",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Your Claude Code nervous system. Live knowledge graph, context intelligence, and optimization engine — plugs directly into Claude Code via hooks.",
   "type": "module",
   "main": "dist/engine/index.js",

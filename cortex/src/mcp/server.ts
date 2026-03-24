@@ -23,10 +23,27 @@ import { computeActivityMap } from "./tools/activity-map.js";
 import { computeQualityHeatmap } from "./tools/quality-heatmap.js";
 import { computeGraphExplorer } from "./tools/graph-explorer.js";
 
+const VALID_NODE_TYPES = ["file", "function", "tool", "decision", "error", "agent", "pattern", "hook", "skill", "query"] as const;
+
 const server = new Server(
   { name: "cortex-dashboard", version: "0.3.0" },
   { capabilities: { tools: {} } },
 );
+
+// ── Arg Validation Helpers ──
+
+function asOptionalString(val: unknown): string | undefined {
+  return typeof val === "string" ? val : undefined;
+}
+
+function asNumber(val: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof val === "number" ? val : fallback;
+  return Math.max(min, Math.min(n, max));
+}
+
+function asBoolean(val: unknown, fallback: boolean): boolean {
+  return typeof val === "boolean" ? val : fallback;
+}
 
 // ── Tool Definitions ──
 
@@ -40,7 +57,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object" as const,
         properties: {
           session_id: { type: "string", description: "Session ID (default: latest)" },
-          window_minutes: { type: "number", description: "Time window in minutes (default: 60)" },
+          window_minutes: { type: "number", description: "Time window in minutes (default: 60, max: 1440)" },
         },
       },
     },
@@ -83,10 +100,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           filter_type: {
             type: "string",
-            enum: ["file", "function", "tool", "decision", "error", "agent", "pattern", "hook", "skill", "query"],
+            enum: [...VALID_NODE_TYPES],
             description: "Filter by node type",
           },
-          max_nodes: { type: "number", description: "Max nodes to return (default: 50)" },
+          max_nodes: { type: "number", description: "Max nodes to return (default: 50, max: 500)" },
         },
       },
     },
@@ -101,37 +118,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "cortex_token_timeline": {
-        const windowMin = Math.max(1, Math.min((args?.window_minutes as number) ?? 60, 1440));
         const result = computeTokenTimeline(
-          args?.session_id as string | undefined,
-          windowMin,
+          asOptionalString(args?.session_id),
+          asNumber(args?.window_minutes, 60, 1, 1440),
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "cortex_activity_map": {
         const result = computeActivityMap(
-          args?.session_id as string | undefined,
-          (args?.include_hooks as boolean) ?? true,
-          (args?.include_skills as boolean) ?? true,
+          asOptionalString(args?.session_id),
+          asBoolean(args?.include_hooks, true),
+          asBoolean(args?.include_skills, true),
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "cortex_quality_heatmap": {
-        const result = computeQualityHeatmap(
-          args?.context as string | undefined,
-          (args?.query as string) ?? "general session quality",
+        const result = await computeQualityHeatmap(
+          asOptionalString(args?.context),
+          typeof args?.query === "string" ? args.query : "general session quality",
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "cortex_graph_explorer": {
-        const maxNodes = Math.max(1, Math.min((args?.max_nodes as number) ?? 50, 500));
+        const filterType = asOptionalString(args?.filter_type);
+        if (filterType && !VALID_NODE_TYPES.includes(filterType as typeof VALID_NODE_TYPES[number])) {
+          return {
+            content: [{ type: "text", text: `Invalid filter_type: ${filterType}. Valid types: ${VALID_NODE_TYPES.join(", ")}` }],
+            isError: true,
+          };
+        }
         const result = await computeGraphExplorer(
-          (args?.mode as "json" | "html") ?? "json",
-          args?.filter_type as string | undefined,
-          maxNodes,
+          (asOptionalString(args?.mode) as "json" | "html") ?? "json",
+          filterType,
+          asNumber(args?.max_nodes, 50, 1, 500),
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }

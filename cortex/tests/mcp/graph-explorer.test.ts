@@ -91,8 +91,8 @@ describe("computeGraphExplorer (json mode)", () => {
 
     const result = await computeGraphExplorer("json", undefined, 50, TEST_DIR) as GraphExplorerJsonResult;
     expect(result.metrics).toBeDefined();
-    expect(result.metrics.nodeCount).toBe(2);
-    expect(result.metrics.edgeCount).toBe(1);
+    expect(result.metrics.clusterCount).toBeDefined();
+    expect(typeof result.metrics.qualityScore).toBe("number");
     expect(result.clusters).toBeDefined();
   });
 
