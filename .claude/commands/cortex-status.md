@@ -1,6 +1,11 @@
+---
+description: Show current Cortex knowledge graph health — quality score, node/edge counts, top connections
+user_invocable: true
+---
+
 Show the current Cortex knowledge graph status.
 
-Run the cortex engine status command to get the current state:
+First, run the brainiac stats command:
 ```bash
 cd ~/.claude/knowledge && python -m brainiac stats
 ```

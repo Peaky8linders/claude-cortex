@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cd ~/.claude/knowledge && python -m brainiac *)",
+      "Bash(cd contextscore && pytest *)",
+      "Bash(cd contextscore && pip install *)",
+      "Bash(cd cortex && npm *)",
+      "Bash(cd brainiac && python -m pytest *)",
+      "Bash(pip install -e .)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch)",
+      "Bash(git branch --list *)",
+      "Bash(git stash list)",
+      "Bash(git stash push *)",
+      "Bash(git stash pop)",
+      "Bash(cat ~/.claude/knowledge/graph/*)",
+      "Bash(cat ~/.claude/knowledge/.ralph-active)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -r *)",
+      "Bash(git push --force *)",
+      "Bash(git branch -D *)",
+      "Bash(git stash drop *)",
+      "Bash(git reset --hard *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(.env)",
+      "Read(.env.*)"
+    ]
+  }
+}

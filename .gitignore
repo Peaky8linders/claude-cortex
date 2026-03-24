@@ -67,6 +67,7 @@ cortex-data/
 
 # User-specific Claude settings (may contain local paths/permissions)
 .claude/settings.local.json
+CLAUDE.local.md
 
 # TypeScript build output is committed for plugin portability
 # Uncomment to require building from source:
