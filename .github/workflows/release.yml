@@ -9,16 +9,44 @@ permissions:
   contents: write
 
 jobs:
-  test:
-    name: Test before release
-    uses: ./.github/workflows/ci.yml
+  test-typescript:
+    name: TypeScript (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cortex
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npm run build
+      - run: npx vitest run
+
+  test-contextscore:
+    name: Python (contextscore tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contextscore
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+      - run: pip install pytest
+      - run: pytest tests/ -v
 
   release:
     name: Create GitHub Release
-    needs: test
+    needs: [test-typescript, test-contextscore]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract version from tag
         id: version
@@ -37,29 +65,7 @@ jobs:
             exit 1
           fi
 
-      - name: Generate release notes
-        id: notes
-        run: |
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            RANGE="$PREV_TAG..HEAD"
-          else
-            RANGE="HEAD"
-          fi
-          # Generate changelog from commits
-          echo "## What's Changed" > release_notes.md
-          echo "" >> release_notes.md
-          git log "$RANGE" --pretty=format:"- %s" --no-merges >> release_notes.md
-          echo "" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Install" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo 'claude plugin add github:Peaky8linders/claude-cortex' >> release_notes.md
-          echo '```' >> release_notes.md
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: release_notes.md
-          generate_release_notes: false
+          generate_release_notes: true
