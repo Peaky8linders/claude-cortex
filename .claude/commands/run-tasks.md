@@ -103,9 +103,9 @@ For each task in order:
 
 7. **Dual quality gate check**:
    ```bash
-   cd ~/.claude/knowledge && python -m brainiac quality
+   bash hooks/scripts/quality-check.sh
    ```
-   Combined with work output heuristics. If composite < 40:
+   Returns a composite score (30% graph health + 70% work quality). If composite < 40:
    - HALT execution immediately
    - Report: "Quality gate triggered (score: X). Halting after task N of M."
    - List remaining tasks that were not executed

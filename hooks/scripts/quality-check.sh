@@ -23,7 +23,7 @@ fi
 
 # 3. Composite: 30% graph health + 70% work quality
 # Work quality matters more — a healthy graph doesn't help if the code is broken
-COMPOSITE=$(python3 -c "print(int($GRAPH_SCORE * 0.3 + $WORK_SCORE * 0.7))" 2>/dev/null || echo "70")
+COMPOSITE=$(python3 -c "import sys; print(int(int(sys.argv[1]) * 0.3 + int(sys.argv[2]) * 0.7))" "$GRAPH_SCORE" "$WORK_SCORE" 2>/dev/null || echo "70")
 
 # Output both scores to stderr for logging, composite to stdout for gating
 echo "[Quality] Graph: $GRAPH_SCORE | Work: $WORK_SCORE | Composite: $COMPOSITE" >&2

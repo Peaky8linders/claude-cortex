@@ -41,12 +41,17 @@ prompt = state.get("prompt", "")
 iteration = state.get("iteration", 0)
 max_iterations = state.get("max_iterations", 50)
 scope = state.get("scope", "")
-reset_strategy = state.get("reset_strategy", "compact")  # "compact" or "reset"
+reset_strategy = state.get("reset_strategy", "compact")
+if reset_strategy not in ("compact", "reset"):
+    log_error(f"Unknown reset_strategy '{reset_strategy}', falling back to 'compact'")
+    reset_strategy = "compact"
 
 # Check iteration limit
 if iteration >= max_iterations:
     print(f"[Ralph] Iteration limit reached ({iteration}/{max_iterations}). Stopping loop.")
     os.remove(ralph_file)
+    if os.path.exists(ralph_cache):
+        os.remove(ralph_cache)
     sys.exit(0)
 
 # Check quality gate via shared quality-check.sh
@@ -106,36 +111,27 @@ else:
     except Exception as e:
         log_error(f"Graph search failed: {e}")
 
-# Build handoff artifact for reset strategy
+# Build handoff artifact for reset strategy (inline, no subprocess)
 handoff = ""
 if reset_strategy == "reset":
-    # Full context reset: structured handoff instead of accumulated history
     try:
-        # Extract decisions and patterns from graph for clean handoff
-        result = subprocess.run(
-            ["python3", "-c", """
-import json, os
-knowledge_dir = os.path.join(os.environ.get("HOME", os.path.expanduser("~")), ".claude", "knowledge")
-nodes_path = os.path.join(knowledge_dir, "graph", "nodes.json")
-if os.path.exists(nodes_path):
-    with open(nodes_path) as f:
-        nodes = json.load(f)
-    decisions = [n for n in nodes if n.get("type") == "decision"][:5]
-    patterns = [n for n in nodes if n.get("type") == "pattern"][:5]
-    items = []
-    for d in decisions:
-        items.append(f"  - [decision] {d.get('content', '')[:80]}")
-    for p in patterns:
-        items.append(f"  - [pattern] {p.get('content', '')[:80]}")
-    print("\\n".join(items) if items else "No decisions or patterns recorded yet.")
-else:
-    print("No graph data available.")
-"""],
-            capture_output=True, text=True, timeout=5
-        )
-        handoff = result.stdout.strip() if result.stdout.strip() else ""
-    except Exception:
-        handoff = ""
+        nodes_path = os.path.join(knowledge_dir, "graph", "nodes.json")
+        if os.path.exists(nodes_path):
+            with open(nodes_path) as f:
+                nodes = json.load(f)
+            decisions = [n for n in nodes if n.get("type") == "decision"][:5]
+            patterns = [n for n in nodes if n.get("type") == "pattern"][:5]
+            items = []
+            for d in decisions:
+                items.append(f"  - [decision] {d.get('content', '')[:80]}")
+            for p in patterns:
+                items.append(f"  - [pattern] {p.get('content', '')[:80]}")
+            handoff = "\n".join(items) if items else "No decisions or patterns recorded yet."
+        else:
+            handoff = "No graph data available."
+    except Exception as e:
+        log_error(f"Handoff artifact build failed: {e}")
+        handoff = "Handoff unavailable — check ralph-errors.log"
 
 # Build re-feed context as proper JSON
 if reset_strategy == "reset":

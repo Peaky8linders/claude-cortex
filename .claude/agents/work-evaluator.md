@@ -22,10 +22,13 @@ praise mediocre work. Do not dismiss real issues as "minor."
 
 ### Step 1: Gather Evidence
 
-Read the diff of changes to evaluate:
+Read the diff of changes to evaluate. Use the ref provided in the task prompt:
+- If evaluating **committed** changes (Ralph loop): `git diff HEAD~1`
+- If evaluating **uncommitted** changes (run-tasks): `git diff HEAD`
+
 ```bash
-git diff HEAD~1 --stat
-git diff HEAD~1
+git diff HEAD~1 --stat   # or HEAD if uncommitted
+git diff HEAD~1           # or HEAD if uncommitted
 ```
 
 If a task description was provided, read it. If test commands were provided, run them:
