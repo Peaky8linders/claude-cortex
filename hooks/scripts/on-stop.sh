@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 
 # Sanitize values to prevent JSON injection (strip quotes, backslashes, control chars)
-sanitize() { echo "$1" | tr -d '"\\\n\r\t' | head -c 100; }
+sanitize() { echo "$1" | tr -d '"\\\n\r\t$`(){}!' | head -c 100; }
 
 # Check Ralph Wiggum loop first — if active, re-feed takes priority
 RALPH_FILE="$KNOWLEDGE_DIR/.ralph-active"
@@ -34,7 +34,8 @@ JOURNAL="$KNOWLEDGE_DIR/session-journal.jsonl"
 EVENTS=$(wc -l < "$JOURNAL" 2>/dev/null | tr -d ' ' || echo "0")
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 SESSION_ID=$(sanitize "${CLAUDE_SESSION_ID:-$$}")
-echo "{\"type\":\"session_end\",\"ts\":\"$TIMESTAMP\",\"sid\":\"$SESSION_ID\",\"total_events\":$EVENTS}" >> "$JOURNAL" 2>/dev/null || true
+MODEL=$(sanitize "${CLAUDE_MODEL:-unknown}")
+echo "{\"type\":\"session_end\",\"ts\":\"$TIMESTAMP\",\"sid\":\"$SESSION_ID\",\"total_events\":$EVENTS,\"model\":\"$MODEL\"}" >> "$JOURNAL" 2>/dev/null || true
 
 if [ -f "$KNOWLEDGE_DIR/graph/nodes.json" ]; then
   NODES=$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "$KNOWLEDGE_DIR/graph/nodes.json" 2>/dev/null || echo "?")

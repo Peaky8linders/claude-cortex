@@ -2,7 +2,7 @@
  * Token Timeline Tool — Time-series token consumption with spike detection
  */
 import { getSessionEntries, estimateTokensForEntry } from "../data/session-reader.js";
-import { COST_PER_TOKEN } from "../data/quality-bridge.js";
+import { computeSessionCost } from "../data/cost-tracker.js";
 export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir) {
     const session = getSessionEntries(sessionId, knowledgeDir);
     const entries = session.entries.filter(e => e.type !== "session_start" && e.type !== "session_end");
@@ -97,6 +97,8 @@ export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir
     const durationMinutes = Math.max(1, Math.floor((endTime - startTime) / 60_000));
     const totalTokens = cumulative;
     const peakBucket = timeline.reduce((a, b) => b.tokens_in > a.tokens_in ? b : a, timeline[0]);
+    // Model-aware cost (defaults to sonnet pricing for entries without model field)
+    const sessionCost = computeSessionCost(entries);
     return {
         timeline,
         spikes,
@@ -106,8 +108,9 @@ export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir
             avg_tokens_per_minute: Math.round(totalTokens / durationMinutes),
             peak_tokens_per_minute: peakBucket?.tokens_in ?? 0,
             peak_time: peakBucket?.ts ?? "",
-            estimated_cost: totalTokens * COST_PER_TOKEN,
+            estimated_cost: sessionCost.total_usd,
             by_tool: byTool,
+            cost_by_model: Object.keys(sessionCost.by_model).length > 0 ? sessionCost.by_model : undefined,
         },
     };
 }

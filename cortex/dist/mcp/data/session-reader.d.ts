@@ -12,6 +12,12 @@ export interface JournalEntry {
     tokens_est?: number;
     event?: string;
     total_events?: number;
+    model?: string;
+    cost_usd?: number;
+    prompt_id?: string;
+    success?: boolean;
+    duration_ms?: number;
+    decision?: "allow" | "deny";
 }
 export interface SessionEdit {
     path: string;
@@ -39,6 +45,11 @@ export declare function readJournalAsync(knowledgeDir?: string): Promise<Journal
  */
 export declare function readJournal(knowledgeDir?: string): JournalEntry[];
 /**
+ * Parse journal entries into session boundaries.
+ * Shared by getSessionEntries and cross-session analytics.
+ */
+export declare function parseSessionBoundaries(all: JournalEntry[]): SessionBoundary[];
+/**
  * Extract entries for a specific session, or the latest session.
  * Sessions are bounded by session_start and session_end entries.
  */
@@ -56,3 +67,8 @@ export declare function readSkills(sessionId?: string): string[];
  * Uses heuristic based on tool type.
  */
 export declare function estimateTokensForEntry(entry: JournalEntry): number;
+/**
+ * Group journal entries by prompt turn using prompt_id correlation.
+ * Falls back to time-proximity grouping (2s window) for old entries without prompt_id.
+ */
+export declare function groupByPromptTurn(entries: JournalEntry[]): JournalEntry[][];

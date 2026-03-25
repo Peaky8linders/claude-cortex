@@ -17,6 +17,7 @@ import { computeTokenTimeline } from "./tools/token-timeline.js";
 import { computeActivityMap } from "./tools/activity-map.js";
 import { computeQualityHeatmap } from "./tools/quality-heatmap.js";
 import { computeGraphExplorer } from "./tools/graph-explorer.js";
+import { computeUnifiedDashboard } from "./tools/unified-dashboard.js";
 const VALID_NODE_TYPES = ["file", "function", "tool", "decision", "error", "agent", "pattern", "hook", "skill", "query"];
 const server = new Server({ name: "cortex-dashboard", version: "0.3.0" }, { capabilities: { tools: {} } });
 // ── Arg Validation Helpers ──
@@ -87,6 +88,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
                 },
             },
         },
+        {
+            name: "cortex_dashboard",
+            description: "Unified session dashboard — KPIs, charts, timeline, quality radar, cost breakdown, and knowledge graph in one page. Dynatrace-inspired layout. Opens in browser.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    session_id: { type: "string", description: "Session ID (default: latest)" },
+                    cross_session: { type: "boolean", description: "Include cross-session history and trends (default: false)" },
+                },
+            },
+        },
     ],
 }));
 // ── Tool Dispatch ──
@@ -115,6 +127,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     };
                 }
                 const result = await computeGraphExplorer(asOptionalString(args?.mode) ?? "json", filterType, asNumber(args?.max_nodes, 50, 1, 500));
+                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+            }
+            case "cortex_dashboard": {
+                const result = await computeUnifiedDashboard(asOptionalString(args?.session_id), asBoolean(args?.cross_session, false));
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
             default:
