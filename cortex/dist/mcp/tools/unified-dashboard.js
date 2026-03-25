@@ -153,7 +153,7 @@ function buildDashboardHtml(dataJson) {
   <div id="header">
     <div>
       <h1>Cortex Dashboard</h1>
-      <span class="subtitle">Dynatrace-inspired session observability</span>
+      <span class="subtitle">Session observability</span>
     </div>
     <span class="subtitle" id="timestamp"></span>
   </div>
