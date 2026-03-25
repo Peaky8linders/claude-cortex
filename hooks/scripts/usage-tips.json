@@ -1,0 +1,100 @@
+{
+  "version": "1.0.0",
+  "tips": [
+    {
+      "id": "tip-frontload-context",
+      "title": "Front-load context, don't follow up",
+      "short": "Edit your prompt instead of replying — avoids re-reading the entire conversation history",
+      "detail": "Each follow-up re-reads the full conversation. A 10-message thread with 500-word responses means 5000+ words of history re-processed per reply. Edit the original message for a clean context reset.",
+      "trigger": "high_message_count",
+      "signal": {"journal_events_gt": 30, "session_age_min": 0},
+      "category": "context"
+    },
+    {
+      "id": "tip-use-projects",
+      "title": "Use Projects for persistent context",
+      "short": "Put repeated background info in CLAUDE.md instead of re-explaining each session",
+      "detail": "If you repeatedly paste the same background (language, codebase structure, tone), put it in CLAUDE.md or a Project system prompt. Saves tokens every session.",
+      "trigger": "session_start",
+      "signal": {"always_eligible": true, "weight": 0.3},
+      "category": "context"
+    },
+    {
+      "id": "tip-skeletons-first",
+      "title": "Ask for skeletons, not full drafts",
+      "short": "Request an outline first, approve it, then flesh out — one bad draft costs 4x an outline iteration",
+      "detail": "For long documents or large features, get the structure right before generating full content. Iterating on an outline is dramatically cheaper than regenerating full drafts.",
+      "trigger": "large_write",
+      "signal": {"write_tokens_gt": 2000},
+      "category": "workflow"
+    },
+    {
+      "id": "tip-surgical-edits",
+      "title": "Be surgical with edits",
+      "short": "Paste only the broken function, not the entire 500-line file",
+      "detail": "Claude doesn't need the whole file to fix one method. Targeted context = faster responses + fewer tokens. Use Read with line ranges instead of full files.",
+      "trigger": "large_read",
+      "signal": {"read_tokens_gt": 4000, "subsequent_small_edit": true},
+      "category": "context"
+    },
+    {
+      "id": "tip-skip-pleasantries",
+      "title": "Skip the pleasantries",
+      "short": "Start with the actual ask — every token of fluff is a token not spent on your task",
+      "detail": "Remove 'Could you perhaps help me with something if you don't mind?' — start with the task. Claude doesn't need social niceties, and they cost tokens.",
+      "trigger": "session_start",
+      "signal": {"always_eligible": true, "weight": 0.2},
+      "category": "efficiency"
+    },
+    {
+      "id": "tip-specify-length",
+      "title": "Specify output length explicitly",
+      "short": "Add 'respond in under 200 words' or 'bullet points only' — Claude's default is generous",
+      "detail": "Without length constraints, Claude generates longer responses than needed. Explicit length saves output tokens and keeps context lean for follow-ups.",
+      "trigger": "session_start",
+      "signal": {"always_eligible": true, "weight": 0.2},
+      "category": "efficiency"
+    },
+    {
+      "id": "tip-batch-tasks",
+      "title": "Batch your tasks",
+      "short": "One message with three tasks beats three separate conversations",
+      "detail": "'Do X. Then Y. Then Z.' in one message is dramatically cheaper than three round-trips. Each new conversation has setup overhead.",
+      "trigger": "rapid_sessions",
+      "signal": {"sessions_last_hour_gt": 3},
+      "category": "workflow"
+    },
+    {
+      "id": "tip-use-haiku",
+      "title": "Use Haiku for simple tasks",
+      "short": "Summarizing, classifying, or quick rewrites don't need Opus — save heavy models for heavy lifting",
+      "detail": "Via API or subagents, route simple tasks (summarization, classification, reformatting) to Haiku. Reserve Sonnet/Opus for multi-file edits, architecture, and complex reasoning.",
+      "trigger": "simple_task_heavy_model",
+      "signal": {"model_is_opus": true, "task_complexity_low": true},
+      "category": "efficiency"
+    },
+    {
+      "id": "tip-dont-search-outputs",
+      "title": "Don't ask Claude to search its own outputs",
+      "short": "Scroll up and Cmd+F instead of asking 'what did you say about X?' — saves a full exchange",
+      "detail": "Asking Claude to recall its own prior output wastes a full round-trip. The text is right there in your conversation — use your editor's search.",
+      "trigger": "self_reference_query",
+      "signal": {"query_pattern": "what did you say|you mentioned|earlier you"},
+      "category": "efficiency"
+    },
+    {
+      "id": "tip-fresh-chat",
+      "title": "Start fresh chats for new topics",
+      "short": "Long conversations with topic drift force Claude to re-read all unrelated context every reply",
+      "detail": "Dragging unrelated tasks into a long conversation means Claude re-reads ALL that context every reply. Fresh chat = clean slate = faster + cheaper.",
+      "trigger": "long_session",
+      "signal": {"journal_events_gt": 50, "session_age_min": 30},
+      "category": "context"
+    }
+  ],
+  "categories": {
+    "context": "Token and context management",
+    "workflow": "Development workflow optimization",
+    "efficiency": "General usage efficiency"
+  }
+}

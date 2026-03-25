@@ -430,6 +430,102 @@ export class KnowledgeGraph {
       }
     }
 
+    // R7: High message count → suggest front-loading context
+    const queryNodes = nodes.filter(n => n.type === "query");
+    if (queryNodes.length > 15) {
+      recs.push({
+        id: `rec-${recId++}`, type: "optimize",
+        title: "Front-load context instead of follow-ups",
+        description: `${queryNodes.length} queries in this session. Each follow-up re-reads the full conversation. Edit your original prompt instead of replying for a clean context reset.`,
+        action: "Write one detailed prompt upfront. Use 'edit message' instead of replying to avoid re-reading the entire history.",
+        impact: `Reduce token re-processing by ~${Math.floor(queryNodes.length * 500)} tokens.`,
+        affectedNodes: queryNodes.map(n => n.id),
+        estimatedSavings: queryNodes.length * 500,
+      });
+    }
+
+    // R8: Large file reads followed by small edits → be surgical
+    const largeFileReads = nodes.filter(n =>
+      n.type === "file" && n.tokenCost > 4000 &&
+      edges.some(e => e.target === n.id && e.type === "reads") &&
+      edges.some(e => e.target === n.id && (e.type === "writes" || e.type === "modifies"))
+    );
+    if (largeFileReads.length > 2) {
+      recs.push({
+        id: `rec-${recId++}`, type: "optimize",
+        title: "Be surgical with edits",
+        description: `${largeFileReads.length} large files were fully read then partially edited. Read only the relevant function/section instead of the full file.`,
+        action: "Use targeted Read with line ranges (offset/limit) instead of reading entire files. Paste only the broken function, not the whole file.",
+        impact: `Save ~${largeFileReads.reduce((a, n) => a + Math.floor(n.tokenCost * 0.6), 0)} tokens from unnecessary context.`,
+        affectedNodes: largeFileReads.map(n => n.id),
+        estimatedSavings: largeFileReads.reduce((a, n) => a + Math.floor(n.tokenCost * 0.6), 0),
+      });
+    }
+
+    // R9: Heavy model on simple tasks → use Haiku for simple stuff
+    const toolNodes = nodes.filter(n => n.type === "tool");
+    const simpleOpsOnHeavyModel = toolNodes.filter(n =>
+      n.properties.model?.toString().includes("opus") &&
+      (n.name.includes("Read") || n.name.includes("Search") || n.name.includes("Glob"))
+    );
+    if (simpleOpsOnHeavyModel.length > 5) {
+      recs.push({
+        id: `rec-${recId++}`, type: "suggestion",
+        title: "Route simple tasks to lighter models",
+        description: `${simpleOpsOnHeavyModel.length} simple operations (reads, searches) ran on a heavy model. Summarizing, classifying, and quick rewrites don't need Opus.`,
+        action: "Use subagents with Haiku for file discovery, search, and simple delegation. Reserve Opus for multi-file edits and architecture decisions.",
+        impact: "Reduce cost per simple operation by ~90%.",
+        affectedNodes: simpleOpsOnHeavyModel.map(n => n.id),
+        estimatedSavings: simpleOpsOnHeavyModel.length * 200,
+      });
+    }
+
+    // R10: Long session with many topics → fresh chat for new topics
+    const allTypes = new Set(nodes.map(n => n.type));
+    const distinctFiles = nodes.filter(n => n.type === "file");
+    if (nodes.length > 40 && distinctFiles.length > 15 && clusters.length > 4) {
+      recs.push({
+        id: `rec-${recId++}`, type: "warning",
+        title: "Consider fresh chats for new topics",
+        description: `This session spans ${clusters.length} distinct clusters across ${distinctFiles.length} files. Long sessions with topic drift force re-reading all unrelated context.`,
+        action: "Start a new chat when switching to an unrelated task. Fresh chat = clean slate = faster + cheaper.",
+        impact: `Free ~${Math.floor(budget.total * 0.3)} tokens of irrelevant context from prior topics.`,
+        affectedNodes: [],
+        estimatedSavings: Math.floor(budget.total * 0.3),
+      });
+    }
+
+    // R11: Outline-first workflow not detected for large writes
+    const largeWrites = nodes.filter(n =>
+      n.type === "file" && n.tokenCost > 2000 &&
+      edges.filter(e => e.target === n.id && (e.type === "writes" || e.type === "modifies")).length > 2
+    );
+    if (largeWrites.length > 0) {
+      recs.push({
+        id: `rec-${recId++}`, type: "suggestion",
+        title: "Ask for outlines before full drafts",
+        description: `${largeWrites.length} files were written/rewritten multiple times. Request an outline first, approve it, then flesh out — one bad draft costs 4x an outline iteration.`,
+        action: "For large features or documents, ask for a skeleton/outline first. Approve the structure before generating full content.",
+        impact: `Save ~${largeWrites.reduce((a, n) => a + Math.floor(n.tokenCost * 0.5), 0)} tokens from avoided rewrites.`,
+        affectedNodes: largeWrites.map(n => n.id),
+        estimatedSavings: largeWrites.reduce((a, n) => a + Math.floor(n.tokenCost * 0.5), 0),
+      });
+    }
+
+    // R12: Batch tasks suggestion when many small tool bursts detected
+    const toolBursts = toolNodes.filter(n => n.accessCount === 1);
+    if (toolBursts.length > 20 && queryNodes.length > 10) {
+      recs.push({
+        id: `rec-${recId++}`, type: "suggestion",
+        title: "Batch your tasks into fewer messages",
+        description: `${queryNodes.length} separate queries detected. Combining related tasks into single messages reduces round-trip overhead dramatically.`,
+        action: "'Do X. Then Y. Then Z.' in one message is cheaper than three separate conversations. Batch related tasks together.",
+        impact: `Save ~${queryNodes.length * 300} tokens from reduced conversation overhead.`,
+        affectedNodes: queryNodes.map(n => n.id),
+        estimatedSavings: queryNodes.length * 300,
+      });
+    }
+
     return recs.sort((a, b) => {
       const priority = { critical: 0, warning: 1, optimize: 2, suggestion: 3 };
       return (priority[a.type] ?? 4) - (priority[b.type] ?? 4);
