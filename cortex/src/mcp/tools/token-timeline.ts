@@ -3,7 +3,7 @@
  */
 
 import { getSessionEntries, estimateTokensForEntry, type JournalEntry } from "../data/session-reader.js";
-import { COST_PER_TOKEN } from "../data/quality-bridge.js";
+import { computeSessionCost } from "../data/cost-tracker.js";
 
 export interface TimelineBucket {
   ts: string;
@@ -29,6 +29,7 @@ export interface TokenSummary {
   peak_time: string;
   estimated_cost: number;
   by_tool: Record<string, number>;
+  cost_by_model?: Record<string, { tokens: number; cost_usd: number }>;
 }
 
 export interface TokenTimelineResult {
@@ -159,6 +160,9 @@ export function computeTokenTimeline(
   const totalTokens = cumulative;
   const peakBucket = timeline.reduce((a, b) => b.tokens_in > a.tokens_in ? b : a, timeline[0]);
 
+  // Model-aware cost (defaults to sonnet pricing for entries without model field)
+  const sessionCost = computeSessionCost(entries);
+
   return {
     timeline,
     spikes,
@@ -168,8 +172,9 @@ export function computeTokenTimeline(
       avg_tokens_per_minute: Math.round(totalTokens / durationMinutes),
       peak_tokens_per_minute: peakBucket?.tokens_in ?? 0,
       peak_time: peakBucket?.ts ?? "",
-      estimated_cost: totalTokens * COST_PER_TOKEN,
+      estimated_cost: sessionCost.total_usd,
       by_tool: byTool,
+      cost_by_model: Object.keys(sessionCost.by_model).length > 0 ? sessionCost.by_model : undefined,
     },
   };
 }

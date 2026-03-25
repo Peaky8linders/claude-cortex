@@ -6,7 +6,9 @@ import {
   readJournal,
   getSessionEntries,
   estimateTokensForEntry,
+  groupByPromptTurn,
 } from "../../src/mcp/data/session-reader.js";
+import type { JournalEntry } from "../../src/mcp/data/session-reader.js";
 
 const TEST_DIR = join(tmpdir(), "cortex-test-session-reader-" + Date.now());
 
@@ -122,5 +124,56 @@ describe("estimateTokensForEntry", () => {
 
   it("defaults to 100 for unknown types", () => {
     expect(estimateTokensForEntry({ type: "something_new", ts: "2026-03-23T12:00:00Z" })).toBe(100);
+  });
+});
+
+describe("groupByPromptTurn", () => {
+  it("groups entries by prompt_id", () => {
+    const entries: JournalEntry[] = [
+      { type: "write", ts: "2026-01-01T00:00:00Z", prompt_id: "s1-100" },
+      { type: "read", ts: "2026-01-01T00:00:01Z", prompt_id: "s1-100" },
+      { type: "bash", ts: "2026-01-01T00:01:00Z", prompt_id: "s1-160" },
+    ];
+    const turns = groupByPromptTurn(entries);
+    expect(turns).toHaveLength(2);
+    expect(turns[0]).toHaveLength(2);
+    expect(turns[1]).toHaveLength(1);
+  });
+
+  it("falls back to time-proximity for entries without prompt_id", () => {
+    const entries: JournalEntry[] = [
+      { type: "write", ts: "2026-01-01T00:00:00Z" },
+      { type: "read", ts: "2026-01-01T00:00:01Z" },    // 1s gap → same turn
+      { type: "bash", ts: "2026-01-01T00:01:00Z" },    // 59s gap → new turn
+    ];
+    const turns = groupByPromptTurn(entries);
+    expect(turns).toHaveLength(2);
+    expect(turns[0]).toHaveLength(2);
+    expect(turns[1]).toHaveLength(1);
+  });
+
+  it("skips session_start and session_end entries", () => {
+    const entries: JournalEntry[] = [
+      { type: "session_start", ts: "2026-01-01T00:00:00Z" },
+      { type: "write", ts: "2026-01-01T00:00:01Z", prompt_id: "s1-100" },
+      { type: "session_end", ts: "2026-01-01T00:01:00Z" },
+    ];
+    const turns = groupByPromptTurn(entries);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toHaveLength(1);
+    expect(turns[0][0].type).toBe("write");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(groupByPromptTurn([])).toHaveLength(0);
+  });
+
+  it("handles single entry", () => {
+    const entries: JournalEntry[] = [
+      { type: "write", ts: "2026-01-01T00:00:00Z" },
+    ];
+    const turns = groupByPromptTurn(entries);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toHaveLength(1);
   });
 });

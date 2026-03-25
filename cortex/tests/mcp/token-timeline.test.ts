@@ -85,7 +85,8 @@ describe("computeTokenTimeline", () => {
 
     const result = computeTokenTimeline(undefined, 60, TEST_DIR);
     expect(result.summary.total_tokens).toBe(1000);
-    expect(result.summary.estimated_cost).toBeCloseTo(0.005, 5);
+    // Model-aware cost: 1000 tokens on sonnet (default) = 700*$3/M + 300*$15/M = $0.0066
+    expect(result.summary.estimated_cost).toBeCloseTo(0.0066, 4);
     expect(result.summary.duration_minutes).toBeGreaterThanOrEqual(1);
   });
 

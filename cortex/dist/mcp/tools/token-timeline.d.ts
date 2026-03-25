@@ -23,6 +23,10 @@ export interface TokenSummary {
     peak_time: string;
     estimated_cost: number;
     by_tool: Record<string, number>;
+    cost_by_model?: Record<string, {
+        tokens: number;
+        cost_usd: number;
+    }>;
 }
 export interface TokenTimelineResult {
     timeline: TimelineBucket[];

@@ -7,12 +7,13 @@ JOURNAL="$KNOWLEDGE_DIR/session-journal.jsonl"
 mkdir -p "$KNOWLEDGE_DIR"
 
 # Sanitize values to prevent JSON injection (strip quotes, backslashes, control chars)
-sanitize() { echo "$1" | tr -d '"\\\n\r\t' | head -c 100; }
+sanitize() { echo "$1" | tr -d '"\\\n\r\t$`(){}!' | head -c 100; }
 
-# Log session start boundary to journal
+# Log session start boundary to journal (v2: adds model field)
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 SESSION_ID=$(sanitize "${CLAUDE_SESSION_ID:-$$}")
-echo "{\"type\":\"session_start\",\"ts\":\"$TIMESTAMP\",\"sid\":\"$SESSION_ID\"}" >> "$JOURNAL" 2>/dev/null || true
+MODEL=$(sanitize "${CLAUDE_MODEL:-unknown}")
+echo "{\"type\":\"session_start\",\"ts\":\"$TIMESTAMP\",\"sid\":\"$SESSION_ID\",\"model\":\"$MODEL\"}" >> "$JOURNAL" 2>/dev/null || true
 
 if [ -f "$KNOWLEDGE_DIR/graph/nodes.json" ]; then
   # Count nodes and edges via sys.argv to avoid shell injection in Python string
