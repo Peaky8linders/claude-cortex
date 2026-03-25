@@ -44,6 +44,7 @@ hooks/scripts/                   — Shell hook handlers
 - `cortex_activity_map` — Gantt-like skill/hook/tool activation timeline
 - `cortex_quality_heatmap` — 7-dimension context quality radar
 - `cortex_graph_explorer` — Interactive knowledge graph
+- `cortex_dashboard` — Unified session dashboard with KPIs, charts, cost breakdown, and cross-session trends
 
 ## Key Design Decisions
 

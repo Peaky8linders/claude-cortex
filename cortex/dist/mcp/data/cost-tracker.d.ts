@@ -1,7 +1,7 @@
 /**
  * Cost Tracker — Model-aware USD cost computation
  *
- * Inspired by Dynatrace's claude_code.cost.usage metric.
+ * Tracks per-model token costs across sessions.
  * Computes per-model costs from token estimates using current pricing.
  */
 import { type JournalEntry } from "./session-reader.js";

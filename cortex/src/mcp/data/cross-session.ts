@@ -1,7 +1,7 @@
 /**
  * Cross-Session Analytics — Aggregate data across multiple sessions
  *
- * Inspired by Dynatrace's cross-session trend dashboards.
+ * Aggregates historical data for trend analysis.
  * Enables historical comparison of tokens, cost, and tool usage.
  */
 

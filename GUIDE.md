@@ -115,7 +115,7 @@ Three views:
 | `/cortex-recommend` | Optimization suggestions: merge, abstract, prune |
 | `/cortex-snapshot` | Save graph state to disk (keeps last 10) |
 | `/cortex-graph` | Full graph dump for inspection |
-| `/cortex-dashboard` | Open interactive visualization in browser |
+| `/cortex-dashboard` | Open interactive visualization or unified session dashboard in browser |
 | `/learn` | Capture session insights as graph nodes |
 | `/hypothesis` | Track testable claims with evidence |
 | `/brainiac` | Direct graph CLI wrapper (search, add, stats) |

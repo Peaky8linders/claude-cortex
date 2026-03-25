@@ -9,7 +9,7 @@ A **Claude Code plugin** that gives Claude persistent memory, context intelligen
 | Module | Language | What it does |
 |--------|----------|-------------|
 | **Brainiac** | Python | Semantic knowledge graph with local embeddings, auto-linking, and intent-aware retrieval |
-| **Cortex** | TypeScript | Hook processor that tracks sessions + MCP server with 4 dashboard tools |
+| **Cortex** | TypeScript | Hook processor that tracks sessions + MCP server with 5 dashboard tools |
 | **ContextScore** | Python | 7-dimension context quality scoring with snapshot/recovery |
 
 Built on research from [A-MEM](https://arxiv.org/abs/2505.10982) (NeurIPS 2025), [MAGMA](https://arxiv.org/abs/2601.07453) (2026), [SmartSearch](https://arxiv.org/abs/2603.15599) (Derehag et al. 2026), [LCM](https://arxiv.org/abs/2602.14345) (Ehrlich 2026), and [Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps) (2025).
@@ -24,13 +24,13 @@ claude plugin add github:Peaky8linders/claude-cortex
 git clone https://github.com/Peaky8linders/claude-cortex.git
 cd claude-cortex
 pip install -e .                    # Python dependencies (brainiac + contextscore)
-cd cortex && npm ci && npm run build  # TypeScript dependencies (cortex engine + MCP server)
+cd cortex && npm install && npm run build  # TypeScript dependencies (cortex engine + MCP server)
 ```
 
 After install, the plugin auto-registers:
 - **7 hooks** — session tracking, context snapshots, compaction recovery
 - **14 slash commands** — `/learn`, `/hypothesis`, `/cortex-status`, `/review-and-ship`, etc.
-- **4 MCP tools** — token timeline, activity map, quality heatmap, graph explorer
+- **5 MCP tools** — token timeline, activity map, quality heatmap, graph explorer, unified dashboard
 - **3 agents** — cortex-advisor (haiku), graph-maintainer (haiku), work-evaluator (sonnet)
 
 ## What You Get
@@ -39,7 +39,7 @@ After install, the plugin auto-registers:
 Claude forgets everything between sessions. Cortex doesn't. Use `/learn` at the end of a session to capture patterns, decisions, and solutions into a knowledge graph. Next session, Claude automatically searches the graph and applies what it learned.
 
 ### Session Dashboard (MCP Tools)
-Query your session in real-time via 4 MCP tools:
+Query your session in real-time via 5 MCP tools:
 
 | Tool | What it shows |
 |------|--------------|
@@ -47,6 +47,7 @@ Query your session in real-time via 4 MCP tools:
 | `cortex_activity_map` | Gantt-like timeline of which hooks, skills, and tools fired |
 | `cortex_quality_heatmap` | 7-dimension radar chart of context quality (semantic relevance, redundancy, economics, etc.) |
 | `cortex_graph_explorer` | Interactive force-directed graph visualization (JSON for terminal, HTML for browser) |
+| `cortex_dashboard` | Unified session dashboard — KPIs, charts, cost breakdown, and knowledge graph in one page |
 
 ### Context Compaction Survival
 When Claude's context window compacts, critical decisions and patterns are lost. Cortex snapshots them before compaction and re-injects them after — lossless context management.
@@ -115,7 +116,7 @@ claude-cortex/
 │   ├── src/engine/                Hook processor core
 │   ├── src/hooks/                 Event routing
 │   ├── src/graph/                 Knowledge graph wrapper
-│   ├── src/mcp/                   MCP server + 4 dashboard tools
+│   ├── src/mcp/                   MCP server + 5 dashboard tools
 │   └── dist/                      Pre-built output (committed for portability)
 │
 ├── contextscore/                  Python: 7-dimension quality scoring
@@ -167,7 +168,7 @@ Stop ──────────► Persist graph, output summary, check Ralp
 
 ```bash
 # TypeScript (cortex engine + MCP server)
-cd cortex && npm ci && npm run build && npx vitest run
+cd cortex && npm install && npm run build && npx vitest run
 
 # Python (brainiac graph engine)
 pip install -e . && pytest tests/ --ignore=tests/shell -v

@@ -17,13 +17,13 @@ pip install -e .
 cd contextscore && pip install -e . && cd ..
 
 # TypeScript package
-cd cortex && npm ci && cd ..
+cd cortex && npm install && cd ..
 ```
 
 ## Running Tests
 
 ```bash
-# All TypeScript tests (90 tests)
+# All TypeScript tests (105 tests)
 cd cortex && npx vitest run
 
 # All Python tests — brainiac (45+ tests)
@@ -54,8 +54,8 @@ cd cortex && npm run build
 | `contextscore/src/contextscore/` | Python | Quality analyzers, snapshot/recovery, API |
 | `cortex/src/` | TypeScript | Hook processor, MCP server, dashboard tools |
 | `hooks/scripts/` | Bash | Hook event handlers |
-| `commands/` | Markdown | Slash command definitions |
-| `skills/` | Markdown | Auto-invoked skill definitions |
+| `.claude/commands/` | Markdown | Slash command definitions |
+| `.claude/skills/` | Markdown | Auto-invoked skill definitions |
 
 ## Conventions
 

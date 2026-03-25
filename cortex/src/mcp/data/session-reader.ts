@@ -20,7 +20,7 @@ export interface JournalEntry {
   tokens_est?: number;
   event?: string;
   total_events?: number;
-  // v2 fields (Dynatrace-inspired telemetry)
+  // v2 fields (enriched telemetry)
   model?: string;
   cost_usd?: number;
   prompt_id?: string;

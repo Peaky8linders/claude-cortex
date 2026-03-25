@@ -90,7 +90,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         {
             name: "cortex_dashboard",
-            description: "Unified session dashboard — KPIs, charts, timeline, quality radar, cost breakdown, and knowledge graph in one page. Dynatrace-inspired layout. Opens in browser.",
+            description: "Unified session dashboard — KPIs, charts, timeline, quality radar, cost breakdown, and knowledge graph in one page. Opens in browser.",
             inputSchema: {
                 type: "object",
                 properties: {

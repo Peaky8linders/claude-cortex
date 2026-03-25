@@ -9,7 +9,7 @@ Plugs directly into Claude Code via hooks. Zero infra.
 # 1. Install and build
 npm install && npx tsc
 
-# 2. Run all 48 tests
+# 2. Run all 105 tests
 npx vitest run
 
 # 3. Ingest the sample session
@@ -46,6 +46,7 @@ Adds async hooks to 7 lifecycle events. Zero latency impact.
 | `cortex snapshot` | Save context before compaction |
 | `cortex ingest <file>` | Analyze a session log |
 | `cortex install-hooks` | Wire into Claude Code |
+| `cortex dashboard` | Open unified session dashboard in browser |
 
 ## Context Hub Integration
 
@@ -55,11 +56,12 @@ Detects stale APIs, tracks chub doc usage, auto-generates annotations.
 
 `cortex_insights_graph.jsx` — standalone artifact with Graph, Timeline, and Insights views.
 
-## 48 Tests Passing
+## 105 Tests Passing
 
 ```
-✓ cortex.test.ts  (30 tests) — graph, metrics, hooks, simulation
-✓ chub.test.ts    (18 tests) — hallucination detection, annotations
+✓ cortex.test.ts       (30 tests) — graph, metrics, hooks, simulation
+✓ chub.test.ts         (18 tests) — hallucination detection, annotations
+✓ mcp/*.test.ts        (57 tests) — dashboard tools, cost tracking, session reading
 ```
 
 MIT License

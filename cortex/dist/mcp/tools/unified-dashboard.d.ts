@@ -1,5 +1,5 @@
 /**
- * Unified Dashboard — Dynatrace-inspired session visualization
+ * Unified Dashboard — session observability visualization
  *
  * Generates a self-contained HTML page combining:
  *   - KPI tiles (tokens, cost, duration, quality)
