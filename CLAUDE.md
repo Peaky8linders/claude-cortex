@@ -74,6 +74,27 @@ hooks/scripts/                   — Shell hook handlers
 - Ralph loop defaults to 50 max iterations, supports `--reset-strategy reset`
 - Destructive commands blocked in settings.json deny list
 
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: GitHub Releases (Claude Code plugin — distributed via git)
+- Production URL: https://github.com/Peaky8linders/claude-cortex
+- Deploy workflow: `.github/workflows/release.yml` (triggers on `v*` tags)
+- Deploy status command: `gh release view`
+- Merge method: merge
+- Project type: Claude Code plugin
+
+### Release process
+1. Bump version in `.claude-plugin/plugin.json`
+2. Commit and push to main
+3. Tag: `git tag v{VERSION} && git push origin v{VERSION}`
+4. CI runs tests, then `release.yml` auto-creates a GitHub Release
+5. Users update: `claude plugin update cortex`
+
+### Custom deploy hooks
+- Pre-merge: tests must pass (CI)
+- Deploy trigger: `git tag v{VERSION} && git push origin v{VERSION}`
+- Deploy status: `gh release view v{VERSION}`
+- Health check: `gh release view --json tagName -q .tagName`
+
 ## Research Foundations
 
 - **A-MEM** — Zettelkasten-style atomic notes + dynamic linking

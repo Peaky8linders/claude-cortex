@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test before release
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Create GitHub Release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract version from plugin.json
+        id: plugin
+        run: |
+          PLUGIN_VERSION=$(jq -r .version .claude-plugin/plugin.json)
+          echo "plugin_version=v$PLUGIN_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches plugin.json
+        run: |
+          if [ "${{ steps.version.outputs.version }}" != "${{ steps.plugin.outputs.plugin_version }}" ]; then
+            echo "ERROR: Tag ${{ steps.version.outputs.version }} does not match plugin.json version ${{ steps.plugin.outputs.plugin_version }}"
+            exit 1
+          fi
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="$PREV_TAG..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          # Generate changelog from commits
+          echo "## What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          git log "$RANGE" --pretty=format:"- %s" --no-merges >> release_notes.md
+          echo "" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Install" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo 'claude plugin add github:Peaky8linders/claude-cortex' >> release_notes.md
+          echo '```' >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          generate_release_notes: false
