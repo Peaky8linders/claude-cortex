@@ -4,5 +4,8 @@
   "description": "Live knowledge graph, context intelligence, session dashboard, and optimization engine for Claude Code.",
   "author": "Andrei",
   "license": "MIT",
+  "homepage": "https://github.com/Peaky8linders/claude-cortex",
+  "repository": "https://github.com/Peaky8linders/claude-cortex",
+  "keywords": ["knowledge-graph", "context", "observability", "memory", "session-dashboard"],
   "mcpConfig": "mcp-config.json"
 }

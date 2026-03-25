@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-session-start.sh",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-session-start.sh",
           "timeout": 5
         }
       ]
@@ -17,7 +17,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-tool-use.sh write",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-tool-use.sh write",
           "async": true,
           "timeout": 10
         }
@@ -28,7 +28,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-tool-use.sh bash",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-tool-use.sh bash",
           "async": true,
           "timeout": 10
         }
@@ -39,7 +39,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-tool-use.sh read",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-tool-use.sh read",
           "async": true,
           "timeout": 10
         }
@@ -52,7 +52,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-pre-compact.sh",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-pre-compact.sh",
           "timeout": 10
         }
       ]
@@ -63,7 +63,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-post-compact.sh",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-post-compact.sh",
           "timeout": 10
         }
       ]
@@ -74,7 +74,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "bash hooks/scripts/on-stop.sh",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/on-stop.sh",
           "timeout": 5
         }
       ]
