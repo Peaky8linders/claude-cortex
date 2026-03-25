@@ -34,7 +34,7 @@ cd contextscore && pytest tests/ -v
 .claude/commands/                — 14 slash commands
 .claude/skills/cortex/           — Auto-invoked cortex advisor + support docs
 .claude/agents/                  — cortex-advisor, graph-maintainer (haiku), work-evaluator (sonnet)
-mcp-config.json                  — MCP server registration (cortex-dashboard)
+.mcp.json                        — MCP server registration (cortex-dashboard)
 hooks/hooks.json                 — Hook wiring (7 events)
 hooks/scripts/                   — Shell hook handlers
 ```

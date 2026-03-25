@@ -91,7 +91,7 @@ Inspired by [Anthropic's harness design research](https://www.anthropic.com/engi
 ```
 claude-cortex/
 ├── .claude-plugin/plugin.json     Plugin manifest (auto-discovered by Claude Code)
-├── mcp-config.json                MCP server registration
+├── .mcp.json                      MCP server registration
 ├── hooks/
 │   ├── hooks.json                 7 hook event definitions
 │   └── scripts/                   Shell handlers for each hook event

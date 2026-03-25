@@ -2,10 +2,18 @@
   "name": "cortex",
   "version": "0.4.0",
   "description": "Live knowledge graph, context intelligence, session dashboard, and optimization engine for Claude Code.",
-  "author": "Andrei",
+  "author": {
+    "name": "Andrei"
+  },
   "license": "MIT",
   "homepage": "https://github.com/Peaky8linders/claude-cortex",
   "repository": "https://github.com/Peaky8linders/claude-cortex",
   "keywords": ["knowledge-graph", "context", "observability", "memory", "session-dashboard"],
-  "mcpConfig": "mcp-config.json"
+  "commands": "./.claude/commands/",
+  "agents": [
+    "./.claude/agents/cortex-advisor.md",
+    "./.claude/agents/graph-maintainer.md",
+    "./.claude/agents/work-evaluator.md"
+  ],
+  "skills": "./.claude/skills/"
 }
