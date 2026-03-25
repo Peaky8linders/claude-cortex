@@ -32,7 +32,7 @@ jobs:
         working-directory: contextscore
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
       - run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
