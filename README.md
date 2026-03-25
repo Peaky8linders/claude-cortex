@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Peaky8linders/claude-cortex/actions/workflows/ci.yml/badge.svg)](https://github.com/Peaky8linders/claude-cortex/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Plugin Version](https://img.shields.io/badge/plugin-v0.3.0-green.svg)](.claude-plugin/plugin.json)
+[![Plugin Version](https://img.shields.io/badge/plugin-v0.4.0-green.svg)](.claude-plugin/plugin.json)
 
 A **Claude Code plugin** that gives Claude persistent memory, context intelligence, and session observability. Three modules working together:
 
@@ -12,7 +12,7 @@ A **Claude Code plugin** that gives Claude persistent memory, context intelligen
 | **Cortex** | TypeScript | Hook processor that tracks sessions + MCP server with 4 dashboard tools |
 | **ContextScore** | Python | 7-dimension context quality scoring with snapshot/recovery |
 
-Built on research from [A-MEM](https://arxiv.org/abs/2505.10982) (NeurIPS 2025), [MAGMA](https://arxiv.org/abs/2601.07453) (2026), [SmartSearch](https://arxiv.org/abs/2603.15599) (Derehag et al. 2026), and [LCM](https://arxiv.org/abs/2602.14345) (Ehrlich 2026).
+Built on research from [A-MEM](https://arxiv.org/abs/2505.10982) (NeurIPS 2025), [MAGMA](https://arxiv.org/abs/2601.07453) (2026), [SmartSearch](https://arxiv.org/abs/2603.15599) (Derehag et al. 2026), [LCM](https://arxiv.org/abs/2602.14345) (Ehrlich 2026), and [Anthropic Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps) (2025).
 
 ## Install as Claude Code Plugin
 
@@ -31,7 +31,7 @@ After install, the plugin auto-registers:
 - **7 hooks** — session tracking, context snapshots, compaction recovery
 - **14 slash commands** — `/learn`, `/hypothesis`, `/cortex-status`, `/review-and-ship`, etc.
 - **4 MCP tools** — token timeline, activity map, quality heatmap, graph explorer
-- **1 agent** — cortex-advisor for deep graph analysis
+- **3 agents** — cortex-advisor (haiku), graph-maintainer (haiku), work-evaluator (sonnet)
 
 ## What You Get
 
@@ -54,9 +54,17 @@ When Claude's context window compacts, critical decisions and patterns are lost.
 ### Autonomous Workflows
 | Level | Command | What it does |
 |-------|---------|-------------|
-| L3 | `/run-tasks` | Execute task YAML with quality gating, each task in its own subagent |
-| L4 | `/ralph-start` | Autonomous loop — Stop hook re-feeds prompt, quality-gated at score < 30 |
+| L3 | `/run-tasks` | Execute task YAML with generator-evaluator pattern and sprint contracts |
+| L4 | `/ralph-start` | Autonomous loop with dual quality gate and optional context resets |
 | L5 | `/auto-research` | Structured experiment runner with `/hypothesis` tracking and eval loops |
+
+### Generator-Evaluator Pattern
+Inspired by [Anthropic's harness design research](https://www.anthropic.com/engineering/harness-design-long-running-apps): separating work production from assessment is more effective than self-evaluation.
+
+- **work-evaluator agent** independently grades output across 5 weighted dimensions (correctness, architecture, completeness, safety, craft)
+- **Sprint contracts** align generator and evaluator on testable success criteria before coding begins
+- **Dual quality gate** combines graph health (30%) + work output quality (70%) into a composite score; halts at < 40
+- **Context reset strategy** (`--reset-strategy reset`) provides clean-slate iterations with structured handoffs for long-running tasks
 
 ## Slash Commands
 
@@ -86,9 +94,14 @@ claude-cortex/
 ├── hooks/
 │   ├── hooks.json                 7 hook event definitions
 │   └── scripts/                   Shell handlers for each hook event
-├── commands/                      14 slash command definitions (.md)
-├── skills/cortex/SKILL.md         Auto-invoked cortex advisor skill
-├── agents/cortex-advisor.md       Deep analysis subagent (Haiku model)
+├── .claude/
+│   ├── commands/                  14 slash command definitions (.md)
+│   ├── skills/cortex/SKILL.md     Auto-invoked cortex advisor skill
+│   ├── agents/
+│   │   ├── cortex-advisor.md      Deep graph analysis (Haiku)
+│   │   ├── graph-maintainer.md    Graph hygiene — consolidation, pruning (Haiku)
+│   │   └── work-evaluator.md      Independent QA grading, 5 dimensions (Sonnet)
+│   └── rules/                     Path-scoped instruction modules
 │
 ├── brainiac/                      Python: semantic graph engine
 │   ├── graph.py                   Core data model (nodes, edges, JSON CRUD)

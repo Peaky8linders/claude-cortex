@@ -15,9 +15,12 @@ if [ ! -f "$RALPH_FILE" ]; then
   exit 0
 fi
 
-# Single python3 call to read all loop state + check gates + build output
+# Portable python resolver (python3 on macOS/Linux, python on Windows)
+PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "python3")
+
+# Single python call to read all loop state + check gates + build output
 export RALPH_SCRIPT_DIR="$SCRIPT_DIR"
-python3 << 'PYEOF'
+"$PYTHON" << 'PYEOF'
 import json, os, subprocess, sys
 from datetime import datetime
 
@@ -57,7 +60,7 @@ if iteration >= max_iterations:
 # Check quality gate via shared quality-check.sh
 quality_script = os.path.join(os.environ.get("RALPH_SCRIPT_DIR", "."), "quality-check.sh")
 try:
-    result = subprocess.run(["bash", quality_script], capture_output=True, text=True, timeout=10)
+    result = subprocess.run(["bash", quality_script], capture_output=True, text=True, timeout=120)
     quality_score = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 70
 except Exception as e:
     log_error(f"Quality check failed: {e}")
@@ -100,7 +103,7 @@ else:
     # First iteration: run search and cache
     try:
         result = subprocess.run(
-            ["python3", "-m", "brainiac", "search", prompt],
+            [sys.executable, "-m", "brainiac", "search", prompt],
             capture_output=True, text=True, timeout=30,
             cwd=knowledge_dir
         )

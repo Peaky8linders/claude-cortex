@@ -7,8 +7,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Portable python resolver (python3 on macOS/Linux, python on Windows)
+PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "python3")
+
 # 1. Graph health score (brainiac quality)
-GRAPH_SCORE=$(cd "$HOME/.claude/knowledge" && python3 -m brainiac quality 2>/dev/null || echo "")
+GRAPH_SCORE=$(cd "$HOME/.claude/knowledge" && "$PYTHON" -m brainiac quality 2>/dev/null || echo "")
 if ! [[ "$GRAPH_SCORE" =~ ^[0-9]+$ ]]; then
   echo "[Quality] WARNING: brainiac quality failed, using fallback graph score 70" >&2
   GRAPH_SCORE=70
@@ -23,7 +26,7 @@ fi
 
 # 3. Composite: 30% graph health + 70% work quality
 # Work quality matters more — a healthy graph doesn't help if the code is broken
-COMPOSITE=$(python3 -c "import sys; print(int(int(sys.argv[1]) * 0.3 + int(sys.argv[2]) * 0.7))" "$GRAPH_SCORE" "$WORK_SCORE" 2>/dev/null || echo "70")
+COMPOSITE=$("$PYTHON" -c "import sys; print(int(int(sys.argv[1]) * 0.3 + int(sys.argv[2]) * 0.7))" "$GRAPH_SCORE" "$WORK_SCORE" 2>/dev/null || echo "70")
 
 # Output both scores to stderr for logging, composite to stdout for gating
 echo "[Quality] Graph: $GRAPH_SCORE | Work: $WORK_SCORE | Composite: $COMPOSITE" >&2

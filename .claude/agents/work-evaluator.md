@@ -3,10 +3,10 @@ name: work-evaluator
 model: sonnet
 description: >
   Generator-evaluator pattern: independent QA agent that grades Claude's actual
-  work output. Spawned after each Ralph iteration, after each run-tasks subagent,
-  and during /review-and-ship. Evaluates the diff, runs tests, checks for known
-  antipatterns from the knowledge graph. Returns a structured score (0-100) across
-  5 dimensions. Tuned to be skeptical — flags real issues, not cosmetic nits.
+  work output. Spawned after each Ralph iteration and after each run-tasks
+  subagent. Evaluates the diff, runs tests, checks for known antipatterns from
+  the knowledge graph. Returns a structured score (0-100) across 5 dimensions.
+  Tuned to be skeptical — flags real issues, not cosmetic nits.
 tools: Read, Grep, Glob, Bash
 ---
 
