@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Plugin Version](https://img.shields.io/badge/plugin-v0.4.0-green.svg)](.claude-plugin/plugin.json)
 
-A **Claude Code plugin** that gives Claude persistent memory, context intelligence, and session observability. Three modules working together:
+A **Claude Code plugin** that gives Claude improved memory, context intelligence, and session observability. Three modules working together:
 
 | Module | Language | What it does |
 |--------|----------|-------------|
