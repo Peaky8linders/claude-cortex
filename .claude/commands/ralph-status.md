@@ -42,7 +42,7 @@ If loop is active, extract from `.ralph-active`:
 
 ### Health Assessment
 - **Healthy**: Quality >= 50, no errors, steady commits
-- **Warning**: Quality 30-50, or errors present, or no commits in last iteration
-- **Critical**: Quality < 30 (will halt on next iteration)
+- **Warning**: Quality 40-50, or errors present, or no commits in last iteration
+- **Critical**: Quality < 40 (will halt on next iteration)
 
 Do NOT modify any files. This is read-only.

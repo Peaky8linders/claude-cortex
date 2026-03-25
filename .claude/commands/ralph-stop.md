@@ -21,9 +21,15 @@ If no loop file exists, report: "No active Ralph loop found."
 ### Step 2: Read Loop Stats
 Extract iteration count, start time, and task from the loop file.
 
-### Step 3: Remove Loop File
+### Step 3: Remove Loop File and Cached State
 ```bash
 rm -f ~/.claude/knowledge/.ralph-active
+rm -f ~/.claude/knowledge/.ralph-search-cache
+```
+
+If the loop was started with `--scope`, deactivate the freeze:
+```
+/unfreeze
 ```
 
 ### Step 4: Generate Summary

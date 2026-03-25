@@ -14,6 +14,9 @@ The user provides:
 1. **Task prompt** (required): What to work on autonomously
 2. **--max-iterations N** (optional): Maximum loop iterations (default: 50)
 3. **--scope DIR** (optional): Directory to freeze edits to
+4. **--reset-strategy compact|reset** (optional): Context management strategy (default: compact)
+   - `compact`: Standard — carry forward context with compaction recovery
+   - `reset`: Full context reset each iteration — clean slate with structured handoff artifact. Better for long-running tasks (10+ iterations) where context anxiety degrades quality.
 
 ## Activation Protocol
 
@@ -22,6 +25,7 @@ Extract:
 - `prompt`: The task description (everything that isn't a flag)
 - `max_iterations`: From `--max-iterations N` or default 50
 - `scope`: From `--scope DIR` or empty
+- `reset_strategy`: From `--reset-strategy` or default "compact"
 
 ### Step 2: Create Loop File
 Write the loop configuration to `~/.claude/knowledge/.ralph-active`:
@@ -48,6 +52,7 @@ data = {
     "max_iterations": MAX_ITER,
     "iteration": 0,
     "scope": "SCOPE_OR_EMPTY",
+    "reset_strategy": "RESET_STRATEGY",
     "started_at": datetime.datetime.now().isoformat()
 }
 ralph_path = os.path.join(os.environ.get("HOME", os.path.expanduser("~")), ".claude", "knowledge", ".ralph-active")
@@ -56,7 +61,7 @@ with open(ralph_path, "w") as f:
 PYEOF
 ```
 
-Replace `THE_PROMPT`, `MAX_ITER`, and `SCOPE_OR_EMPTY` with the actual values. Use a heredoc (`<< 'PYEOF'`) so that the prompt text is never interpolated by the shell — only parsed by Python's JSON serializer.
+Replace `THE_PROMPT`, `MAX_ITER`, `SCOPE_OR_EMPTY`, and `RESET_STRATEGY` with the actual values. Use a heredoc (`<< 'PYEOF'`) so that the prompt text is never interpolated by the shell — only parsed by Python's JSON serializer.
 
 ### Step 3: Activate Freeze (if scope provided)
 If the user specified `--scope`, activate `/freeze` for that directory to prevent edits outside the boundary.
@@ -74,7 +79,8 @@ Output:
   Task: {prompt}
   Scope: {scope or "entire project"}
   Max iterations: {max_iterations}
-  Quality gate: halts at score < 30
+  Reset strategy: {reset_strategy}
+  Quality gate: dual gate (graph + work), halts at composite < 40
 
 Starting iteration 1. The loop will continue automatically when you finish each iteration.
 To stop: /ralph-stop
@@ -84,7 +90,7 @@ To stop: /ralph-stop
 Begin working on the task immediately. When you're done with one iteration's worth of work, commit your changes and the session will naturally end — the Stop hook will re-feed the prompt for the next iteration.
 
 ## Safety
-- Quality score < 30 = automatic halt
+- Dual quality gate (30% graph health + 70% work quality), composite < 40 = automatic halt
 - Max iterations enforced (default 50)
 - Git push is NEVER automated
 - `/ralph-stop` can halt at any time
@@ -95,4 +101,5 @@ Begin working on the task immediately. When you're done with one iteration's wor
 /ralph-start "Fix all TODO comments in brainiac/" --max-iterations 10 --scope brainiac/
 /ralph-start "Refactor the analyzer module to use dataclasses" --scope contextscore/analyzers/
 /ralph-start "Add comprehensive test coverage to cortex hooks" --max-iterations 20
+/ralph-start "Rewrite retriever with BFS" --max-iterations 15 --reset-strategy reset --scope brainiac/
 ```

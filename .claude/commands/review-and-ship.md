@@ -1,4 +1,5 @@
 ---
+name: review-and-ship
 description: Deep code review, fix all issues, run tests, and create a PR in one pipeline
 user_invocable: true
 ---
