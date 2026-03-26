@@ -484,7 +484,6 @@ export class KnowledgeGraph {
     }
 
     // R10: Long session with many topics → fresh chat for new topics
-    const allTypes = new Set(nodes.map(n => n.type));
     const distinctFiles = nodes.filter(n => n.type === "file");
     if (nodes.length > 40 && distinctFiles.length > 15 && clusters.length > 4) {
       recs.push({
