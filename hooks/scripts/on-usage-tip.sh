@@ -13,6 +13,8 @@ TIPS_DB="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/hooks/scrip
 [ -f "$JOURNAL" ] || exit 0
 [ -f "$TIPS_DB" ] || exit 0
 
+export TIPS_DB_PATH="$TIPS_DB"
+
 python3 << 'PYEOF'
 import json, os, time
 from datetime import datetime, timezone
@@ -21,28 +23,6 @@ knowledge_dir = os.path.join(os.environ.get("HOME", os.path.expanduser("~")), ".
 journal_path = os.path.join(knowledge_dir, "session-journal.jsonl")
 tip_file = os.path.join(knowledge_dir, "active-tip.json")
 tips_db_path = os.environ.get("TIPS_DB_PATH", "")
-
-# Find tips DB
-plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
-if not tips_db_path:
-    for candidate in [
-        os.path.join(plugin_root, "hooks", "scripts", "usage-tips.json") if plugin_root else "",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage-tips.json") if "__file__" in dir() else "",
-    ]:
-        if candidate and os.path.exists(candidate):
-            tips_db_path = candidate
-            break
-
-# Fallback: try relative to script location via env
-if not tips_db_path:
-    # Try common locations
-    for d in [os.path.dirname(os.path.realpath("/proc/self/fd/0")) if os.path.exists("/proc/self/fd/0") else ""]:
-        pass
-    # Final fallback: search near knowledge dir
-    import glob
-    candidates = glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "**", "usage-tips.json"), recursive=True)
-    if candidates:
-        tips_db_path = candidates[0]
 
 if not tips_db_path or not os.path.exists(tips_db_path):
     raise SystemExit(0)
