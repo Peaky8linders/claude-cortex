@@ -130,6 +130,17 @@ for tip in tips:
         if "opus" in model.lower() and event_count < 5:
             score = 0.5
 
+    elif trigger == "rapid_sessions":
+        # Many events in a short session duration
+        # Uses configuration keys if present, with safe defaults.
+        min_events = signal.get("journal_events_gt", 3)
+        max_age_min = signal.get("session_age_max", 10)
+        if event_count > min_events and age_min < max_age_min:
+            score = signal.get("weight", 0.4)
+
+    elif trigger == "self_reference_query" and signal.get("always_eligible"):
+        # Simple opt-in tip controlled by config; no specialized detection here.
+        score = signal.get("weight", 0.3)
     if score > 0:
         scored_tips.append((score, tip))
 
