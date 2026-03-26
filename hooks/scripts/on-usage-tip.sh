@@ -52,29 +52,54 @@ with open(tips_db_path) as f:
     tips_data = json.load(f)
 tips = tips_data["tips"]
 
-# Load journal entries for current session
-entries = []
+# Load only current session entries by reading from the end of the journal.
+# This avoids loading the entire (potentially large) file into memory on every
+# invocation — important because this hook fires every ~10 tool calls.
+session_entries = []
 try:
-    with open(journal_path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
+    with open(journal_path, "rb") as f:
+        # Seek to end, then read backwards in chunks to find session_start
+        f.seek(0, 2)
+        file_size = f.tell()
+        if file_size == 0:
+            raise SystemExit(0)
+        chunk_size = 8192
+        remainder = b""
+        found_boundary = False
+        pos = file_size
+        while pos > 0 and not found_boundary:
+            read_size = min(chunk_size, pos)
+            pos -= read_size
+            f.seek(pos)
+            chunk = f.read(read_size) + remainder
+            lines = chunk.split(b"\n")
+            # First element may be a partial line — save as remainder
+            remainder = lines[0]
+            # Process complete lines in reverse
+            for raw in reversed(lines[1:]):
+                raw = raw.strip()
+                if not raw:
+                    continue
                 try:
-                    entries.append(json.loads(line))
+                    entry = json.loads(raw)
                 except json.JSONDecodeError:
                     continue
+                session_entries.insert(0, entry)
+                if entry.get("type") == "session_start":
+                    found_boundary = True
+                    break
+        # Handle the very first line of the file (remainder)
+        if not found_boundary and remainder.strip():
+            try:
+                entry = json.loads(remainder.strip())
+                session_entries.insert(0, entry)
+            except json.JSONDecodeError:
+                pass
 except Exception:
     raise SystemExit(0)
 
-if not entries:
+if not session_entries:
     raise SystemExit(0)
-
-# Find current session entries (last session_start boundary)
-session_entries = []
-for i in range(len(entries) - 1, -1, -1):
-    session_entries.insert(0, entries[i])
-    if entries[i].get("type") == "session_start":
-        break
 
 now = time.time()
 event_count = len(session_entries)
