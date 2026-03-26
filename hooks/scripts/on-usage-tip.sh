@@ -7,12 +7,18 @@ set -euo pipefail
 KNOWLEDGE_DIR="$HOME/.claude/knowledge"
 JOURNAL="$KNOWLEDGE_DIR/session-journal.jsonl"
 TIP_FILE="$KNOWLEDGE_DIR/active-tip.json"
-TIPS_DB="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/hooks/scripts/usage-tips.json"
 
-# Bail if no journal or tips DB
+# Bail if no journal; tips DB path is validated by Python, but we
+# ensure a default-only path exists before exporting it.
 [ -f "$JOURNAL" ] || exit 0
-[ -f "$TIPS_DB" ] || exit 0
 
+# If TIPS_DB_PATH is not already provided, derive it from CLAUDE_PLUGIN_ROOT
+# and ensure that file exists before proceeding.
+if [ -z "${TIPS_DB_PATH:-}" ]; then
+  TIPS_DB="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/hooks/scripts/usage-tips.json"
+  [ -f "$TIPS_DB" ] || exit 0
+  export TIPS_DB_PATH="$TIPS_DB"
+fi
 python3 << 'PYEOF'
 import json, os, time
 from datetime import datetime, timezone
