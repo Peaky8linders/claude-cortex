@@ -55,7 +55,7 @@ fi
 
 # Combine graph status + usage tip
 if [ -n "$TIP_MSG" ]; then
-  FULL_MSG="${GRAPH_MSG}\n${TIP_MSG}"
+  FULL_MSG="${GRAPH_MSG}"$'\n'"${TIP_MSG}"
 else
   FULL_MSG="${GRAPH_MSG}"
 fi
