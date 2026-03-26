@@ -162,14 +162,17 @@ for tip in tips:
     elif trigger == "rapid_sessions":
         # Many events in a short session duration
         # Uses configuration keys if present, with safe defaults.
-        min_events = signal.get("journal_events_gt", 3)
+        # Support both legacy "journal_events_gt" and JSON's "sessions_last_hour_gt".
+        min_events = signal.get("journal_events_gt", signal.get("sessions_last_hour_gt", 3))
         max_age_min = signal.get("session_age_max", 10)
         if event_count > min_events and age_min < max_age_min:
             score = signal.get("weight", 0.4)
 
-    elif trigger == "self_reference_query" and signal.get("always_eligible"):
-        # Simple opt-in tip controlled by config; no specialized detection here.
-        score = signal.get("weight", 0.3)
+    elif trigger == "self_reference_query":
+        # Simple opt-in tip controlled by config; eligible if always_eligible is true
+        # or if a query_pattern is configured in the usage-tips.json entry.
+        if signal.get("always_eligible") or signal.get("query_pattern"):
+            score = signal.get("weight", 0.3)
     if score > 0:
         scored_tips.append((score, tip))
 
