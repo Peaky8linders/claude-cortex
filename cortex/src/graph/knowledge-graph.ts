@@ -500,7 +500,9 @@ export class KnowledgeGraph {
     // R11: Outline-first workflow not detected for large writes
     const largeWrites = nodes.filter(n =>
       n.type === "file" && n.tokenCost > 2000 &&
-      edges.filter(e => e.target === n.id && (e.type === "writes" || e.type === "modifies")).length > 2
+      edges
+        .filter(e => e.target === n.id && (e.type === "writes" || e.type === "modifies"))
+        .reduce((count, e) => count + (e.weight ?? 1), 0) > 2
     );
     if (largeWrites.length > 0) {
       recs.push({
