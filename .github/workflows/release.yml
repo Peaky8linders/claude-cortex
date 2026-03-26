@@ -16,8 +16,8 @@ jobs:
       run:
         working-directory: cortex
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
       - run: npm install
@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: contextscore
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
@@ -44,7 +44,7 @@ jobs:
     needs: [test-typescript, test-contextscore]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
