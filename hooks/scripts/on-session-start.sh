@@ -30,27 +30,25 @@ TIPS_DB="$SCRIPT_DIR/usage-tips.json"
 TIP_MSG=""
 if [ -f "$KNOWLEDGE_DIR/active-tip.json" ]; then
   # Use the previously detected tip
-  TIP_MSG=$(python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        tip = json.load(f)
-    print(f'[Usage Tip] {tip[\"title\"]}: {tip[\"short\"]}')
-except Exception:
-    pass
-" "$KNOWLEDGE_DIR/active-tip.json" 2>/dev/null || true)
+  TIP_MSG=$(python3 -c "import json, sys; \
+try: \
+    open_file = open(sys.argv[1]); \
+    tip = json.load(open_file); \
+    open_file.close(); \
+    print(f'[Usage Tip] {tip[\"title\"]}: {tip[\"short\"]}'); \
+except Exception: \
+    pass" "$KNOWLEDGE_DIR/active-tip.json" 2>/dev/null || true)
 elif [ -f "$TIPS_DB" ]; then
   # No active tip — pick a random one for fresh sessions
-  TIP_MSG=$(python3 -c "
-import json, random, sys
-try:
-    with open(sys.argv[1]) as f:
-        tips = json.load(f)['tips']
-    tip = random.choice(tips)
-    print(f'[Usage Tip] {tip[\"title\"]}: {tip[\"short\"]}')
-except Exception:
-    pass
-" "$TIPS_DB" 2>/dev/null || true)
+  TIP_MSG=$(python3 -c "import json, random, sys; \
+try: \
+    open_file = open(sys.argv[1]); \
+    tips = json.load(open_file)['tips']; \
+    open_file.close(); \
+    tip = random.choice(tips); \
+    print(f'[Usage Tip] {tip[\"title\"]}: {tip[\"short\"]}'); \
+except Exception: \
+    pass" "$TIPS_DB" 2>/dev/null || true)
 fi
 
 # Combine graph status + usage tip

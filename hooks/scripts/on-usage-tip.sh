@@ -39,17 +39,15 @@ if not tips_db_path:
             tips_db_path = candidate
             break
 
-# Fallback: try relative to script location via env
-if not tips_db_path:
-    # Try common locations
-    for d in [os.path.dirname(os.path.realpath("/proc/self/fd/0")) if os.path.exists("/proc/self/fd/0") else ""]:
-        pass
-    # Final fallback: search near knowledge dir
+# Optional fallback: allow an explicit opt-in recursive scan under ~/.claude
+if not tips_db_path and os.environ.get("CLAUDE_TIPS_FALLBACK_SCAN"):
     import glob
-    candidates = glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "**", "usage-tips.json"), recursive=True)
+    candidates = glob.glob(
+        os.path.join(os.path.expanduser("~"), ".claude", "**", "usage-tips.json"),
+        recursive=True,
+    )
     if candidates:
         tips_db_path = candidates[0]
-
 if not tips_db_path or not os.path.exists(tips_db_path):
     raise SystemExit(0)
 
@@ -164,14 +162,31 @@ for tip in tips:
     elif trigger == "rapid_sessions":
         # Many events in a short session duration
         # Uses configuration keys if present, with safe defaults.
-        min_events = signal.get("journal_events_gt", 3)
-        max_age_min = signal.get("session_age_max", 10)
+        # Support both legacy "journal_events_gt" and JSON's "sessions_last_hour_gt".
+        min_events = signal.get("journal_events_gt", signal.get("sessions_last_hour_gt", 3))
+        # session_age_max is interpreted as seconds in JSON; convert to minutes to compare with age_min.
+        max_age_sec = signal.get("session_age_max", 600)  # default: 10 minutes
+        max_age_min = max_age_sec / 60.0
         if event_count > min_events and age_min < max_age_min:
             score = signal.get("weight", 0.4)
 
-    elif trigger == "self_reference_query" and signal.get("always_eligible"):
-        # Simple opt-in tip controlled by config; no specialized detection here.
-        score = signal.get("weight", 0.3)
+    elif trigger == "self_reference_query":
+        # Simple opt-in tip controlled by config; eligible if always_eligible is true
+        # or, when a query_pattern is configured in usage-tips.json, if that pattern
+        # actually appears in the session journal entries.
+        always_eligible = bool(signal.get("always_eligible"))
+        pattern = signal.get("query_pattern")
+        if always_eligible:
+            score = signal.get("weight", 0.3)
+        elif pattern:
+            pattern_lower = str(pattern).lower()
+            for entry in session_entries:
+                for value in entry.values():
+                    if isinstance(value, str) and pattern_lower in value.lower():
+                        score = signal.get("weight", 0.3)
+                        break
+                if score > 0:
+                    break
     if score > 0:
         scored_tips.append((score, tip))
 
