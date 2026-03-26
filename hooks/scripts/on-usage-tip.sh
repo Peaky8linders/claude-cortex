@@ -39,17 +39,15 @@ if not tips_db_path:
             tips_db_path = candidate
             break
 
-# Fallback: try relative to script location via env
-if not tips_db_path:
-    # Try common locations
-    for d in [os.path.dirname(os.path.realpath("/proc/self/fd/0")) if os.path.exists("/proc/self/fd/0") else ""]:
-        pass
-    # Final fallback: search near knowledge dir
+# Optional fallback: allow an explicit opt-in recursive scan under ~/.claude
+if not tips_db_path and os.environ.get("CLAUDE_TIPS_FALLBACK_SCAN"):
     import glob
-    candidates = glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "**", "usage-tips.json"), recursive=True)
+    candidates = glob.glob(
+        os.path.join(os.path.expanduser("~"), ".claude", "**", "usage-tips.json"),
+        recursive=True,
+    )
     if candidates:
         tips_db_path = candidates[0]
-
 if not tips_db_path or not os.path.exists(tips_db_path):
     raise SystemExit(0)
 
