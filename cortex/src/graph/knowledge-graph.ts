@@ -464,13 +464,21 @@ export class KnowledgeGraph {
 
     // R9: Heavy model on simple tasks → use Haiku for simple stuff
     const toolNodes = nodes.filter((n: GraphNode) => n.type === "tool");
-    const simpleOpsOnHeavyModel = toolNodes.filter((n: GraphNode) => {
-      // Prefer explicit model property if present; otherwise, fall back to name.
+    // Detect whether the overall session appears to be using a heavy model (e.g., Opus).
+    const heavyModelInSession = nodes.some((n: GraphNode) => {
       const modelHint = (n.properties?.model ?? n.name ?? "").toString().toLowerCase();
-      const isHeavyModel = modelHint.includes("opus");
-      const isSimpleOp = n.name.includes("Read") || n.name.includes("Search") || n.name.includes("Glob");
-      return isHeavyModel && isSimpleOp;
+      return modelHint.includes("opus");
     });
+    const simpleOpsOnHeavyModel = heavyModelInSession
+      ? toolNodes.filter((n: GraphNode) => {
+          const name = n.name ?? "";
+          const isSimpleOp =
+            name.includes("Read") ||
+            name.includes("Search") ||
+            name.includes("Glob");
+          return isSimpleOp;
+        })
+      : [];
     if (simpleOpsOnHeavyModel.length > 5) {
       recs.push({
         id: `rec-${recId++}`, type: "suggestion",
