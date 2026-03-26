@@ -170,9 +170,21 @@ for tip in tips:
 
     elif trigger == "self_reference_query":
         # Simple opt-in tip controlled by config; eligible if always_eligible is true
-        # or if a query_pattern is configured in the usage-tips.json entry.
-        if signal.get("always_eligible") or signal.get("query_pattern"):
+        # or, when a query_pattern is configured in usage-tips.json, if that pattern
+        # actually appears in the session journal entries.
+        always_eligible = bool(signal.get("always_eligible"))
+        pattern = signal.get("query_pattern")
+        if always_eligible:
             score = signal.get("weight", 0.3)
+        elif pattern:
+            pattern_lower = str(pattern).lower()
+            for entry in session_entries:
+                for value in entry.values():
+                    if isinstance(value, str) and pattern_lower in value.lower():
+                        score = signal.get("weight", 0.3)
+                        break
+                if score > 0:
+                    break
     if score > 0:
         scored_tips.append((score, tip))
 
