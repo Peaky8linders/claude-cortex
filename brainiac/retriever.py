@@ -93,12 +93,13 @@ def record_access(graph: BrainiacGraph, node_ids: list[str], session_id: str = "
         node.metadata["last_accessed"] = now_str
         node.metadata["access_count"] = node.metadata.get("access_count", 0) + 1
 
-        # Track unique sessions
+        # Track unique sessions (capped at 50 most recent to bound JSON size)
         if session_id:
-            sessions = set(node.metadata.get("accessed_sessions", []))
-            sessions.add(session_id)
-            node.metadata["accessed_sessions"] = list(sessions)
-            node.metadata["unique_sessions"] = len(sessions)
+            sessions = list(dict.fromkeys(node.metadata.get("accessed_sessions", [])))
+            if session_id not in sessions:
+                sessions.append(session_id)
+            node.metadata["accessed_sessions"] = sessions[-50:]
+            node.metadata["unique_sessions"] = len(node.metadata["accessed_sessions"])
 
 
 def is_retrievable(node: MemoryNode) -> bool:

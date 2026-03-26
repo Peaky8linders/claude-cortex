@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import KNOWLEDGE_ROOT, GRAPH_DIR
@@ -169,7 +170,6 @@ def cmd_search(graph: BrainiacGraph, query: str):
         return
 
     # Record access for retrieved nodes (reinforces frequently-used nodes)
-    import os
     session_id = os.environ.get("CLAUDE_SESSION_ID", "")
     record_access(graph, [r.node.id for r in results], session_id)
     graph.save()
@@ -287,7 +287,6 @@ def cmd_demote(graph: BrainiacGraph, stale_days: int = 30, dry_run: bool = True)
         stale_days: Number of days without access before demotion.
         dry_run: If True, only report candidates. If False, actually demote.
     """
-    from datetime import timedelta
     cutoff = datetime.now() - timedelta(days=stale_days)
     candidates = []
 
