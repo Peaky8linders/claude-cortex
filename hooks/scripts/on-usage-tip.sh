@@ -164,7 +164,9 @@ for tip in tips:
         # Uses configuration keys if present, with safe defaults.
         # Support both legacy "journal_events_gt" and JSON's "sessions_last_hour_gt".
         min_events = signal.get("journal_events_gt", signal.get("sessions_last_hour_gt", 3))
-        max_age_min = signal.get("session_age_max", 10)
+        # session_age_max is interpreted as seconds in JSON; convert to minutes to compare with age_min.
+        max_age_sec = signal.get("session_age_max", 600)  # default: 10 minutes
+        max_age_min = max_age_sec / 60.0
         if event_count > min_events and age_min < max_age_min:
             score = signal.get("weight", 0.4)
 
