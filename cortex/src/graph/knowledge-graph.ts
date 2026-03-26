@@ -511,13 +511,13 @@ export class KnowledgeGraph {
       });
     }
 
-    // R12: Batch tasks suggestion when many small tool bursts detected
-    const toolBursts = toolNodes.filter(n => n.accessCount === 1);
-    if (toolBursts.length > 20 && queryNodes.length > 10) {
+    // R12: Batch tasks suggestion when high raw tool invocation count across many queries
+    const totalToolInvocations = toolNodes.reduce((sum, n) => sum + n.accessCount, 0);
+    if (totalToolInvocations > 30 && queryNodes.length > 5) {
       recs.push({
         id: `rec-${recId++}`, type: "suggestion",
         title: "Batch your tasks into fewer messages",
-        description: `${queryNodes.length} separate queries detected. Combining related tasks into single messages reduces round-trip overhead dramatically.`,
+        description: `${totalToolInvocations} tool invocations across ${queryNodes.length} queries detected. Combining related tasks into single messages reduces round-trip overhead dramatically.`,
         action: "'Do X. Then Y. Then Z.' in one message is cheaper than three separate conversations. Batch related tasks together.",
         impact: `Save ~${queryNodes.length * 300} tokens from reduced conversation overhead.`,
         affectedNodes: queryNodes.map(n => n.id),
