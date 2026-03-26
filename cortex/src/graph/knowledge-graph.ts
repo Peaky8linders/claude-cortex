@@ -465,8 +465,7 @@ export class KnowledgeGraph {
     // R9: Heavy model on simple tasks → use Haiku for simple stuff
     const toolNodes = nodes.filter(n => n.type === "tool");
     const simpleOpsOnHeavyModel = toolNodes.filter(n =>
-      n.properties.model?.toString().includes("opus") &&
-      (n.name.includes("Read") || n.name.includes("Search") || n.name.includes("Glob"))
+      n.name.includes("Read") || n.name.includes("Search") || n.name.includes("Glob")
     );
     if (simpleOpsOnHeavyModel.length > 5) {
       recs.push({
