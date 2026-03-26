@@ -13,7 +13,7 @@ from . import KNOWLEDGE_ROOT, GRAPH_DIR
 from .graph import BrainiacGraph, MemoryNode, Edge
 from . import embeddings
 from .linker import link_new_node
-from .consolidator import find_merge_candidates, find_abstraction_candidates, find_stale_nodes
+from .consolidator import find_merge_candidates, find_abstraction_candidates, find_stale_nodes, node_last_touched
 from .retriever import retrieve, detect_intent, record_access
 from .renderer import render_views, update_index
 
@@ -295,11 +295,8 @@ def cmd_demote(graph: BrainiacGraph, stale_days: int = 30, dry_run: bool = True)
         if salience == "dormant":
             continue
 
-        # Use last_accessed > updated > timestamp
-        last_touch = node.metadata.get("last_accessed") or node.metadata.get("updated") or node.timestamp
-        try:
-            last_dt = datetime.fromisoformat(str(last_touch))
-        except (ValueError, TypeError):
+        last_dt = node_last_touched(node)
+        if last_dt is None:
             continue
 
         if last_dt < cutoff:

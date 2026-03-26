@@ -155,6 +155,21 @@ class TestRecordAccess:
         record_access(tmp_graph, ["pat-001"], session_id="sess-2")  # new session
         assert node.metadata["unique_sessions"] == 2
 
+    def test_session_list_capped_at_50(self, tmp_graph):
+        """accessed_sessions should never exceed 50 entries."""
+        node = make_node("pat-001")
+        node.metadata["accessed_sessions"] = []
+        node.metadata["unique_sessions"] = 0
+        tmp_graph.add_node(node)
+        # Add 60 unique sessions
+        for i in range(60):
+            record_access(tmp_graph, ["pat-001"], session_id=f"sess-{i}")
+        assert len(node.metadata["accessed_sessions"]) == 50
+        assert node.metadata["unique_sessions"] == 50
+        # Oldest sessions should have been evicted
+        assert "sess-0" not in node.metadata["accessed_sessions"]
+        assert "sess-59" in node.metadata["accessed_sessions"]
+
     def test_skips_nonexistent_nodes(self, tmp_graph):
         """Should not raise for missing node IDs."""
         record_access(tmp_graph, ["nonexistent"], session_id="sess-1")

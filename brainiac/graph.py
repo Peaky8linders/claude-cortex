@@ -90,14 +90,26 @@ class BrainiacGraph:
                 self.edges = []
 
     def save(self):
-        self._nodes_path().write_text(
+        """Persist graph to JSON with atomic writes.
+
+        Writes to a temp file first, then renames to the target path.
+        This prevents truncated/corrupt JSON if the process is killed mid-save.
+        """
+        self._atomic_write(
+            self._nodes_path(),
             json.dumps([n.to_dict() for n in self.nodes.values()], indent=2),
-            encoding="utf-8",
         )
-        self._edges_path().write_text(
+        self._atomic_write(
+            self._edges_path(),
             json.dumps([e.to_dict() for e in self.edges], indent=2),
-            encoding="utf-8",
         )
+
+    @staticmethod
+    def _atomic_write(path: Path, content: str):
+        """Write content to path atomically via temp-file-then-rename."""
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(content, encoding="utf-8")
+        tmp.replace(path)
 
     # --- Node CRUD ---
 

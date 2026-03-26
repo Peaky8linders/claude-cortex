@@ -16,7 +16,7 @@ import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import numpy as np
@@ -62,10 +62,15 @@ def decay_weight(node: MemoryNode, now: Optional[datetime] = None) -> float:
     # Find the most recent timestamp
     last_touch = node.metadata.get("last_accessed") or node.metadata.get("updated") or node.timestamp
     try:
-        last_dt = datetime.fromisoformat(str(last_touch).replace("Z", "+00:00").replace("+00:00", ""))
+        # Strip timezone info to compare with naive datetime.now().
+        # At 30-day half-life, hours of TZ error is negligible.
+        raw = str(last_touch).replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(raw)
+        # Convert to naive local time for comparison
+        last_dt = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
     except (ValueError, TypeError):
         # Can't parse — assume moderately stale (15 days)
-        last_dt = now
+        last_dt = now - timedelta(days=15)
 
     days_ago = max(0.0, (now - last_dt).total_seconds() / 86400)
 

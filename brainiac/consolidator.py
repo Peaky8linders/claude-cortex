@@ -68,16 +68,37 @@ def find_abstraction_candidates(
     return clusters
 
 
+def node_last_touched(node: MemoryNode) -> Optional[datetime]:
+    """Get the most recent timestamp for a node.
+
+    Checks last_accessed > updated > timestamp, returning the most
+    recent parseable datetime. Returns None if nothing is parseable.
+
+    Shared by find_stale_nodes() and cmd_demote() to avoid duplicate
+    staleness heuristics.
+    """
+    for field in ("last_accessed", "updated"):
+        val = node.metadata.get(field)
+        if val:
+            try:
+                return datetime.fromisoformat(str(val))
+            except (ValueError, TypeError):
+                continue
+    # Fall back to node.timestamp
+    try:
+        return datetime.fromisoformat(str(node.timestamp))
+    except (ValueError, TypeError):
+        return None
+
+
 def find_stale_nodes(graph: BrainiacGraph, days: int = STALE_DAYS) -> list[MemoryNode]:
     """Find nodes not updated in `days` and with few connections."""
     cutoff = datetime.now() - timedelta(days=days)
     stale = []
 
     for node in graph.nodes.values():
-        try:
-            updated = node.metadata.get("updated", node.timestamp)
-            node_time = datetime.fromisoformat(updated)
-        except (ValueError, TypeError):
+        node_time = node_last_touched(node)
+        if node_time is None:
             continue
 
         if node_time < cutoff and len(node.links) <= 1:
