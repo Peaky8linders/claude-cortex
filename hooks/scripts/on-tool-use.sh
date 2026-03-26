@@ -27,8 +27,21 @@ TOKENS_EST=$(( INPUT_SIZE / 4 ))
 echo "{\"type\":\"$SAFE_TYPE\",\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL_NAME\",\"sid\":\"$SESSION_ID\",\"tokens_est\":$TOKENS_EST,\"event\":\"PostToolUse\",\"model\":\"$MODEL\",\"prompt_id\":\"$PROMPT_ID\"}" >> "$JOURNAL" 2>/dev/null || true
 
 # Usage tip detection: run every 10 tool calls (async, non-blocking)
-EVENT_COUNT=$(grep -F "\"event\":\"PostToolUse\"" "$JOURNAL" 2>/dev/null | grep -F "\"sid\":\"$SESSION_ID\"" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-if [ $(( EVENT_COUNT % 10 )) -eq 0 ] && [ "$EVENT_COUNT" -gt 0 ]; then
+COUNTER_FILE="$KNOWLEDGE_DIR/session-${SESSION_ID}-posttooluse-count"
+EVENT_COUNT=0
+if [ -f "$COUNTER_FILE" ]; then
+  EVENT_COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo "0")
+fi
+# Ensure EVENT_COUNT is numeric; reset to 0 if not
+case "$EVENT_COUNT" in
+  ''|*[!0-9]*)
+    EVENT_COUNT=0
+    ;;
+esac
+EVENT_COUNT=$(( EVENT_COUNT + 1 ))
+echo "$EVENT_COUNT" > "$COUNTER_FILE" 2>/dev/null || true
+
+if [ $(( EVENT_COUNT % 10 )) -eq 0 ]; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   export TIPS_DB_PATH="$SCRIPT_DIR/usage-tips.json"
   bash "$SCRIPT_DIR/on-usage-tip.sh" 2>/dev/null &
