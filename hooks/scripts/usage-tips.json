@@ -61,7 +61,7 @@
       "short": "One message with three tasks beats three separate conversations",
       "detail": "'Do X. Then Y. Then Z.' in one message is dramatically cheaper than three round-trips. Each new conversation has setup overhead.",
       "trigger": "rapid_sessions",
-      "signal": {"sessions_last_hour_gt": 3},
+      "signal": {"journal_events_gt": 3, "session_age_max": 3600},
       "category": "workflow"
     },
     {
