@@ -516,9 +516,9 @@ export class KnowledgeGraph {
       });
     }
 
-    // R12: Batch tasks suggestion when many small tool bursts detected
-    const toolBursts = toolNodes.filter(n => n.accessCount === 1);
-    if (toolBursts.length > 20 && queryNodes.length > 10) {
+    // R12: Batch tasks suggestion when many small tool invocations detected
+    const totalToolAccesses = toolNodes.reduce((sum, n) => sum + (n.accessCount || 0), 0);
+    if (totalToolAccesses > 20 && queryNodes.length > 10) {
       recs.push({
         id: `rec-${recId++}`, type: "suggestion",
         title: "Batch your tasks into fewer messages",
