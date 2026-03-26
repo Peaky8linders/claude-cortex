@@ -60,4 +60,4 @@ else
   FULL_MSG="${GRAPH_MSG}"
 fi
 
-echo "{\"additionalContext\": \"${FULL_MSG}\"}"
+python3 -c 'import json,sys; print(json.dumps({"additionalContext": sys.stdin.read()}))' <<< "$FULL_MSG"
