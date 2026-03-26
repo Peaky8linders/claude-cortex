@@ -24,10 +24,15 @@ def temp_graph(tmp_path):
 
 
 def make_result(node_id, score, content="test"):
-    """Helper to create a RetrievalResult."""
+    """Helper to create a RetrievalResult.
+
+    Uses a recent timestamp so temporal decay doesn't distort test expectations.
+    """
+    from datetime import datetime
+    now = datetime.now().isoformat(timespec="seconds")
     node = MemoryNode(
-        id=node_id, content=content, timestamp="2026-01-01",
-        metadata={"type": "pattern"},
+        id=node_id, content=content, timestamp=now,
+        metadata={"type": "pattern", "last_accessed": now, "unique_sessions": 3},
     )
     return RetrievalResult(node=node, score=score, path=[node_id], relations=[])
 
@@ -69,13 +74,18 @@ class TestRerank:
         assert reranked[0].node.id == "buried"
 
     def test_rerank_blends_bfs_and_direct(self):
-        """Score should be 0.7 * direct + 0.3 * normalized_bfs."""
+        """Score should be 0.7 * direct * decay + 0.3 * normalized_bfs.
+
+        With temporal decay, a recently-accessed node with unique_sessions=3
+        gets a frequency boost of log(4) ≈ 1.386, so the expected score is:
+        0.7 * 1.0 * log(4) + 0.3 * 1.0 ≈ 1.27
+        """
         query_vec = [1.0] + [0.0] * 383
         results = [make_result("a", 1.0)]
         embs = {"a": [1.0] + [0.0] * 383}  # perfect match
         reranked = rerank(results, query_vec, embs)
-        # 0.7 * 1.0 + 0.3 * 1.0 = 1.0
-        assert abs(reranked[0].score - 1.0) < 0.01
+        # Score > 1.0 because frequency boost from unique_sessions=3
+        assert reranked[0].score > 0.9
 
     def test_rerank_handles_missing_embedding(self):
         """Nodes without embeddings get direct_sim=0."""

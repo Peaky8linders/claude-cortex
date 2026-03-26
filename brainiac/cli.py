@@ -13,7 +13,7 @@ from .graph import BrainiacGraph, MemoryNode, Edge
 from . import embeddings
 from .linker import link_new_node
 from .consolidator import find_merge_candidates, find_abstraction_candidates, find_stale_nodes
-from .retriever import retrieve, detect_intent
+from .retriever import retrieve, detect_intent, record_access
 from .renderer import render_views, update_index
 
 
@@ -88,8 +88,15 @@ def cmd_expand(graph: BrainiacGraph, node_id: str):
     print(f"Created: {node.timestamp}")
     if node.metadata.get("updated"):
         print(f"Updated: {node.metadata['updated']}")
+    if node.metadata.get("last_accessed"):
+        print(f"Last accessed: {node.metadata['last_accessed']}")
     print(f"Status: {node.metadata.get('status', 'active')}")
+    print(f"Salience: {node.metadata.get('salience', 'active')}")
     print(f"Confidence: {node.metadata.get('confidence', 'unknown')}")
+    access_count = node.metadata.get("access_count", 0)
+    unique_sessions = node.metadata.get("unique_sessions", 0)
+    if access_count > 0:
+        print(f"Access: {access_count} times across {unique_sessions} sessions")
     print(f"\nContent:")
     print(f"  {node.content}")
     print(f"\nKeywords: {', '.join(node.keywords)}")
@@ -161,6 +168,12 @@ def cmd_search(graph: BrainiacGraph, query: str):
         print("No results found.")
         return
 
+    # Record access for retrieved nodes (reinforces frequently-used nodes)
+    import os
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    record_access(graph, [r.node.id for r in results], session_id)
+    graph.save()
+
     print(f"\n{'ID':<12} {'Score':>6}  {'Type':<12} {'Title'}")
     print("-" * 70)
     for r in results:
@@ -191,7 +204,10 @@ def cmd_add(graph: BrainiacGraph, node_type: str, content: str, **kwargs):
             "projects": kwargs.get("projects", []),
             "confidence": kwargs.get("confidence", "medium"),
             "status": "active",
+            "salience": "active",
             "source": "cli",
+            "access_count": 0,
+            "unique_sessions": 0,
         },
     )
 
@@ -255,6 +271,80 @@ def cmd_consolidate(graph: BrainiacGraph):
             print(f"  {node.id} (last updated: {node.metadata.get('updated', node.timestamp)[:10]})")
     else:
         print("\nNo stale nodes.")
+
+
+def cmd_demote(graph: BrainiacGraph, stale_days: int = 30, dry_run: bool = True):
+    """Demote stale nodes to dormant salience.
+
+    Nodes not accessed in `stale_days` with salience='active' or 'background'
+    get demoted to 'dormant'. Dormant nodes are excluded from retrieval but
+    still exist in the graph and can be found via `brainiac expand`.
+
+    This implements "active forgetting" — the graph equivalent of how human
+    memory naturally lets unused information fade from active recall.
+
+    Args:
+        stale_days: Number of days without access before demotion.
+        dry_run: If True, only report candidates. If False, actually demote.
+    """
+    from datetime import timedelta
+    cutoff = datetime.now() - timedelta(days=stale_days)
+    candidates = []
+
+    for node in graph.nodes.values():
+        salience = node.metadata.get("salience", "active")
+        if salience == "dormant":
+            continue
+
+        # Use last_accessed > updated > timestamp
+        last_touch = node.metadata.get("last_accessed") or node.metadata.get("updated") or node.timestamp
+        try:
+            last_dt = datetime.fromisoformat(str(last_touch))
+        except (ValueError, TypeError):
+            continue
+
+        if last_dt < cutoff:
+            candidates.append(node)
+
+    if not candidates:
+        print(f"No nodes stale for {stale_days}+ days. Graph is fresh.")
+        return
+
+    if dry_run:
+        print(f"\nDEMOTION candidates ({len(candidates)} nodes stale for {stale_days}+ days):")
+        for node in candidates:
+            last = node.metadata.get("last_accessed") or node.metadata.get("updated") or node.timestamp
+            sessions = node.metadata.get("unique_sessions", 0)
+            print(f"  {node.id} (last: {str(last)[:10]}, sessions: {sessions}): {node.content[:60]}")
+        print(f"\nRun with --apply to demote these nodes to dormant.")
+    else:
+        for node in candidates:
+            node.metadata["salience"] = "dormant"
+            node.metadata["demoted_at"] = datetime.now().isoformat(timespec="seconds")
+        graph.save()
+        print(f"\nDemoted {len(candidates)} nodes to dormant salience.")
+        print("They won't appear in retrieval but can still be found via `brainiac expand <id>`.")
+
+
+def cmd_promote(graph: BrainiacGraph, node_id: str, salience: str = "active"):
+    """Promote a node back from dormant/background to active salience.
+
+    Use this to reverse a demotion or to manually control what surfaces.
+    """
+    if salience not in ("active", "background"):
+        print(f"Error: salience must be 'active' or 'background', got '{salience}'")
+        return
+
+    node = graph.get_node(node_id)
+    if not node:
+        print(f"Node {node_id} not found.")
+        return
+
+    old_salience = node.metadata.get("salience", "active")
+    node.metadata["salience"] = salience
+    node.metadata.pop("demoted_at", None)
+    graph.save()
+    print(f"Promoted {node_id}: {old_salience} → {salience}")
 
 
 def cmd_render(graph: BrainiacGraph):
@@ -394,7 +484,7 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
 def main():
     if len(sys.argv) < 2:
         print("Usage: python -m brainiac.cli <command> [args]")
-        print("Commands: stats, quality, search, expand, add, link, consolidate, render, migrate")
+        print("Commands: stats, quality, search, expand, add, link, consolidate, demote, promote, render, migrate")
         sys.exit(1)
 
     graph = BrainiacGraph()
@@ -426,6 +516,24 @@ def main():
         cmd_link(graph, sys.argv[2], sys.argv[3], sys.argv[4])
     elif command == "consolidate":
         cmd_consolidate(graph)
+    elif command == "demote":
+        days = 30
+        apply = False
+        for arg in sys.argv[2:]:
+            if arg.startswith("--days="):
+                days = int(arg.split("=")[1])
+            elif arg == "--apply":
+                apply = True
+        cmd_demote(graph, stale_days=days, dry_run=not apply)
+    elif command == "promote":
+        if len(sys.argv) < 3:
+            print("Usage: python -m brainiac promote <node-id> [--salience=active|background]")
+            sys.exit(1)
+        salience = "active"
+        for arg in sys.argv[3:]:
+            if arg.startswith("--salience="):
+                salience = arg.split("=")[1]
+        cmd_promote(graph, sys.argv[2], salience)
     elif command == "render":
         cmd_render(graph)
     elif command == "migrate":

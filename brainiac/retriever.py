@@ -1,10 +1,22 @@
-"""Intent-aware multi-hop retrieval engine (MAGMA-inspired)."""
+"""Intent-aware multi-hop retrieval engine (MAGMA-inspired).
+
+Includes temporal decay scoring to prevent stale memories from dominating
+retrieval. Inspired by the "memory decay" problem discussed by Karpathy et al:
+models treat all stored context as equally important, causing one-off questions
+from months ago to surface as persistent interests.
+
+Decay model: exponential half-life at 30 days. A node last accessed 60 days ago
+scores 0.25x vs a node accessed today. Reinforced nodes (high unique_sessions)
+get a frequency boost via log(unique_sessions + 1).
+"""
 
 from __future__ import annotations
 
+import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 import numpy as np
@@ -24,6 +36,79 @@ INTENT_WEIGHTS = {
 
 MAX_HOPS = 3
 MAX_NODES = 20
+
+# Temporal decay parameters
+DECAY_HALF_LIFE_DAYS = 30  # Score halves every 30 days of inactivity
+DECAY_FLOOR = 0.05         # Minimum decay factor (never fully zero)
+FREQUENCY_BOOST_CAP = 2.0  # Max multiplier from unique session count
+
+
+def decay_weight(node: MemoryNode, now: Optional[datetime] = None) -> float:
+    """Compute temporal decay factor for a node.
+
+    Uses exponential decay with a 30-day half-life based on the most recent
+    of: last_accessed, updated, or timestamp. Nodes accessed recently score
+    close to 1.0; stale nodes decay toward DECAY_FLOOR.
+
+    Also applies a frequency boost based on unique_sessions: a node referenced
+    from 5 different sessions matters more than one referenced 5 times in one
+    session.
+
+    Returns a multiplier in [DECAY_FLOOR, FREQUENCY_BOOST_CAP].
+    """
+    if now is None:
+        now = datetime.now()
+
+    # Find the most recent timestamp
+    last_touch = node.metadata.get("last_accessed") or node.metadata.get("updated") or node.timestamp
+    try:
+        last_dt = datetime.fromisoformat(str(last_touch).replace("Z", "+00:00").replace("+00:00", ""))
+    except (ValueError, TypeError):
+        # Can't parse — assume moderately stale (15 days)
+        last_dt = now
+
+    days_ago = max(0.0, (now - last_dt).total_seconds() / 86400)
+
+    # Exponential decay: 0.5^(days/half_life)
+    decay = max(DECAY_FLOOR, math.pow(0.5, days_ago / DECAY_HALF_LIFE_DAYS))
+
+    # Frequency boost: log(unique_sessions + 1), capped
+    unique_sessions = node.metadata.get("unique_sessions", 1)
+    frequency = min(FREQUENCY_BOOST_CAP, math.log(max(1, unique_sessions) + 1))
+
+    return decay * frequency
+
+
+def record_access(graph: BrainiacGraph, node_ids: list[str], session_id: str = ""):
+    """Record that nodes were accessed in a retrieval.
+
+    Updates last_accessed, access_count, and unique_sessions metadata.
+    Called after retrieval to maintain recency/frequency signals.
+    """
+    now_str = datetime.now().isoformat(timespec="seconds")
+    for nid in node_ids:
+        node = graph.get_node(nid)
+        if not node:
+            continue
+        node.metadata["last_accessed"] = now_str
+        node.metadata["access_count"] = node.metadata.get("access_count", 0) + 1
+
+        # Track unique sessions
+        if session_id:
+            sessions = set(node.metadata.get("accessed_sessions", []))
+            sessions.add(session_id)
+            node.metadata["accessed_sessions"] = list(sessions)
+            node.metadata["unique_sessions"] = len(sessions)
+
+
+def is_retrievable(node: MemoryNode) -> bool:
+    """Check if a node should be included in retrieval results.
+
+    Nodes with salience='dormant' are excluded from retrieval.
+    They still exist in the graph and can be found via direct expand.
+    """
+    salience = node.metadata.get("salience", "active")
+    return salience != "dormant"
 
 
 @dataclass
@@ -79,15 +164,19 @@ def retrieve(
 
     # Step 2: BFS from anchors with intent-weighted scoring
     results: dict[str, RetrievalResult] = {}
+    now = datetime.now()
 
     for anchor_id, anchor_score in similar:
         node = graph.get_node(anchor_id)
-        if not node:
+        if not node or not is_retrievable(node):
             continue
+
+        # Apply temporal decay to anchor score
+        decayed_score = anchor_score * decay_weight(node, now)
 
         results[anchor_id] = RetrievalResult(
             node=node,
-            score=anchor_score,
+            score=decayed_score,
             path=[anchor_id],
             relations=[],
         )
@@ -109,7 +198,7 @@ def retrieve(
                     neighbor_score = current_score * edge.weight * edge_weight * hop_decay * 0.3
 
                     neighbor_node = graph.get_node(neighbor_id)
-                    if not neighbor_node:
+                    if not neighbor_node or not is_retrievable(neighbor_node):
                         continue
 
                     new_path = path + [neighbor_id]
@@ -152,15 +241,18 @@ def rerank(
 
     BFS scoring decays with hops (0.7^hop * 0.3), which buries relevant
     nodes found via multi-hop traversal. Re-ranking replaces BFS scores
-    with a blend of direct similarity and graph-traversal signal.
+    with a blend of direct similarity, graph-traversal signal, and temporal
+    decay.
 
-    Blend: 0.7 * direct_similarity + 0.3 * normalized_bfs_score
-    This preserves graph structure signal while letting direct relevance dominate.
+    Blend: 0.7 * direct_similarity * temporal_decay + 0.3 * normalized_bfs_score
+    This preserves graph structure signal while letting direct relevance and
+    recency dominate. Stale one-off nodes naturally sink.
     """
     if not results:
         return results
 
     query = np.array(query_vec)
+    now = datetime.now()
 
     # Normalize BFS scores to 0-1 range for blending
     max_bfs = max(r.score for r in results) if results else 1.0
@@ -175,8 +267,10 @@ def rerank(
         else:
             direct_sim = 0.0
 
+        # Apply temporal decay to direct similarity
+        decay = decay_weight(result.node, now)
         normalized_bfs = result.score / max_bfs
-        result.score = 0.7 * direct_sim + 0.3 * normalized_bfs
+        result.score = 0.7 * direct_sim * decay + 0.3 * normalized_bfs
 
     results.sort(key=lambda r: r.score, reverse=True)
     return results

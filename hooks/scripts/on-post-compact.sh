@@ -26,10 +26,15 @@ snapshot_files = sorted(glob.glob(os.path.join(snapshots_dir, "nodes_*.json")), 
 snapshot_ref = os.path.basename(snapshot_files[0]) if snapshot_files else "none"
 
 # Build lossless pointers: compact references with expand capability
-decisions = [n for n in nodes if n.get("metadata", {}).get("type") == "decision"]
-patterns = [n for n in nodes if n.get("metadata", {}).get("type") == "pattern"]
+# Filter out dormant nodes — they should not be injected into context
+# (prevents the "one question becomes your identity" problem)
+def is_active(n):
+    return n.get("metadata", {}).get("salience", "active") != "dormant"
+
+decisions = [n for n in nodes if n.get("metadata", {}).get("type") == "decision" and is_active(n)]
+patterns = [n for n in nodes if n.get("metadata", {}).get("type") == "pattern" and is_active(n)]
 active_hyps = [n for n in nodes if n.get("metadata", {}).get("type") == "hypothesis"
-               and n.get("metadata", {}).get("status") != "rejected"]
+               and n.get("metadata", {}).get("status") != "rejected" and is_active(n)]
 
 lines = ["[Cortex Recovery — Lossless Pointers]"]
 lines.append(f"Snapshot: {snapshot_ref} | Expand: `cd ~/.claude/knowledge && python -m brainiac expand <id>`")
