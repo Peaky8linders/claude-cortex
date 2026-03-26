@@ -25,3 +25,11 @@ TOKENS_EST=$(( INPUT_SIZE / 4 ))
 
 # Append enriched event to session journal (v2: adds model, prompt_id for Dynatrace-style correlation)
 echo "{\"type\":\"$SAFE_TYPE\",\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL_NAME\",\"sid\":\"$SESSION_ID\",\"tokens_est\":$TOKENS_EST,\"event\":\"PostToolUse\",\"model\":\"$MODEL\",\"prompt_id\":\"$PROMPT_ID\"}" >> "$JOURNAL" 2>/dev/null || true
+
+# Usage tip detection: run every 10 tool calls (async, non-blocking)
+EVENT_COUNT=$(grep -F "\"event\":\"PostToolUse\"" "$JOURNAL" 2>/dev/null | grep -F "\"sid\":\"$SESSION_ID\"" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+if [ $(( EVENT_COUNT % 10 )) -eq 0 ] && [ "$EVENT_COUNT" -gt 0 ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  export TIPS_DB_PATH="$SCRIPT_DIR/usage-tips.json"
+  bash "$SCRIPT_DIR/on-usage-tip.sh" 2>/dev/null &
+fi

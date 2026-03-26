@@ -56,6 +56,17 @@ if active_hyps:
 if not decisions and not patterns and not active_hyps:
     lines.append("No active decisions, patterns, or hypotheses in graph.")
 
+# Surface usage tip if one was detected
+tip_file = os.path.join(knowledge_dir, "active-tip.json")
+try:
+    if os.path.exists(tip_file):
+        with open(tip_file) as tf:
+            tip = json.load(tf)
+        lines.append("")
+        lines.append(f"[Usage Tip] {tip['title']}: {tip['short']}")
+except Exception:
+    pass
+
 lines.append("")
 lines.append(f"Total: {len(nodes)} nodes. Full context recoverable via `brainiac expand <id>`.")
 
