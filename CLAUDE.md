@@ -31,11 +31,11 @@ cd contextscore && pytest tests/ -v
 .claude-plugin/plugin.json       — Plugin manifest
 .claude/settings.json            — Team permissions (committed)
 .claude/rules/                   — Path-scoped instruction modules
-.claude/commands/                — 14 slash commands
-.claude/skills/cortex/           — Auto-invoked cortex advisor + support docs
+.claude/commands/                — 14 slash commands (learn, hypothesis, cortex-*, ralph-*, etc.)
+.claude/skills/cortex/           — Auto-invoked cortex advisor + support docs (SKILL.md, GRAPH_SCHEMA.md, QUALITY_DIMENSIONS.md)
 .claude/agents/                  — cortex-advisor, graph-maintainer (haiku), work-evaluator (sonnet)
 .mcp.json                        — MCP server registration (cortex-dashboard)
-hooks/hooks.json                 — Hook wiring (7 events)
+hooks/hooks.json                 — Hook wiring (5 events: SessionStart, PostToolUse, PreCompact, PostCompact, Stop)
 hooks/scripts/                   — Shell hook handlers
 ```
 

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,13 +59,14 @@ class Edge:
 
 
 class BrainiacGraph:
-    """JSON-backed knowledge graph with typed edges."""
+    """JSON-backed knowledge graph with typed edges and adjacency index."""
 
     def __init__(self, graph_dir: Optional[Path] = None):
         self.graph_dir = graph_dir or GRAPH_DIR
         self.graph_dir.mkdir(parents=True, exist_ok=True)
         self.nodes: dict[str, MemoryNode] = {}
         self.edges: list[Edge] = []
+        self._adj: dict[str, list[Edge]] = defaultdict(list)  # adjacency index
         self._load()
 
     # --- Persistence ---
@@ -88,28 +92,41 @@ class BrainiacGraph:
             except json.JSONDecodeError as e:
                 print(f"Warning: corrupted edges.json, starting fresh: {e}")
                 self.edges = []
+        # Rebuild adjacency index from loaded edges
+        self._rebuild_adj()
+
+    def _rebuild_adj(self):
+        """Rebuild the adjacency index from the edge list."""
+        self._adj = defaultdict(list)
+        for e in self.edges:
+            self._adj[e.source].append(e)
+            self._adj[e.target].append(e)
 
     def save(self):
-        """Persist graph to JSON with atomic writes.
+        """Persist graph to JSON with directory-level atomic writes.
 
-        Writes to a temp file first, then renames to the target path.
-        This prevents truncated/corrupt JSON if the process is killed mid-save.
+        Writes both nodes.json and edges.json to a temp directory, then
+        replaces them together. This prevents inconsistency if the process
+        is killed between writing the two files.
         """
-        self._atomic_write(
-            self._nodes_path(),
-            json.dumps([n.to_dict() for n in self.nodes.values()], indent=2),
-        )
-        self._atomic_write(
-            self._edges_path(),
-            json.dumps([e.to_dict() for e in self.edges], indent=2),
-        )
+        nodes_json = json.dumps([n.to_dict() for n in self.nodes.values()], indent=2)
+        edges_json = json.dumps([e.to_dict() for e in self.edges], indent=2)
 
-    @staticmethod
-    def _atomic_write(path: Path, content: str):
-        """Write content to path atomically via temp-file-then-rename."""
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(content, encoding="utf-8")
-        tmp.replace(path)
+        # Write both files to a temp directory, then move them atomically
+        tmp_dir = Path(tempfile.mkdtemp(dir=self.graph_dir, prefix=".save-"))
+        try:
+            (tmp_dir / "nodes.json").write_text(nodes_json, encoding="utf-8")
+            (tmp_dir / "edges.json").write_text(edges_json, encoding="utf-8")
+            # Atomic replacement of each file
+            (tmp_dir / "nodes.json").replace(self._nodes_path())
+            (tmp_dir / "edges.json").replace(self._edges_path())
+        except Exception:
+            # Clean up temp files on failure — don't leave orphans
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
+        finally:
+            # Clean up the (now empty) temp directory
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # --- Node CRUD ---
 
@@ -131,6 +148,7 @@ class BrainiacGraph:
     def delete_node(self, node_id: str):
         self.nodes.pop(node_id, None)
         self.edges = [e for e in self.edges if e.source != node_id and e.target != node_id]
+        self._rebuild_adj()
         # Remove from link lists
         for n in self.nodes.values():
             if node_id in n.links:
@@ -149,6 +167,9 @@ class BrainiacGraph:
                 e.metadata.update(edge.metadata)
                 return e
         self.edges.append(edge)
+        # Update adjacency index
+        self._adj[edge.source].append(edge)
+        self._adj[edge.target].append(edge)
         # Update link lists
         if edge.source in self.nodes and edge.target not in self.nodes[edge.source].links:
             self.nodes[edge.source].links.append(edge.target)
@@ -161,6 +182,7 @@ class BrainiacGraph:
             e for e in self.edges
             if not (e.source == source and e.target == target and (relation is None or e.relation == relation))
         ]
+        self._rebuild_adj()
 
     # --- Queries ---
 
@@ -178,24 +200,23 @@ class BrainiacGraph:
 
     def neighbors(self, node_id: str, relation: Optional[str] = None) -> list[MemoryNode]:
         connected_ids = set()
-        for e in self.edges:
-            if e.source == node_id and (relation is None or e.relation == relation):
-                connected_ids.add(e.target)
-            if e.target == node_id and (relation is None or e.relation == relation):
-                connected_ids.add(e.source)
+        for e in self._adj.get(node_id, []):
+            if relation is not None and e.relation != relation:
+                continue
+            other = e.target if e.source == node_id else e.source
+            connected_ids.add(other)
         return [self.nodes[nid] for nid in connected_ids if nid in self.nodes]
 
     def edges_for(self, node_id: str, relation: Optional[str] = None) -> list[Edge]:
-        return [
-            e for e in self.edges
-            if (e.source == node_id or e.target == node_id)
-            and (relation is None or e.relation == relation)
-        ]
+        """O(1) edge lookup via adjacency index."""
+        edges = self._adj.get(node_id, [])
+        if relation is not None:
+            return [e for e in edges if e.relation == relation]
+        return list(edges)
 
     # --- Stats ---
 
     def stats(self) -> dict:
-        from collections import Counter
         type_counts = Counter(n.metadata.get("type", "unknown") for n in self.nodes.values())
         edge_counts = Counter(e.relation for e in self.edges)
         # Most connected nodes
@@ -205,11 +226,16 @@ class BrainiacGraph:
             connection_counts[e.target] += 1
         top_connected = connection_counts.most_common(5)
 
+        # Orphan count: nodes with zero edges
+        connected_nodes = set(connection_counts.keys())
+        orphan_count = sum(1 for nid in self.nodes if nid not in connected_nodes)
+
         return {
             "total_nodes": len(self.nodes),
             "total_edges": len(self.edges),
             "nodes_by_type": dict(type_counts),
             "edges_by_relation": dict(edge_counts),
+            "orphan_count": orphan_count,
             "most_connected": [
                 {"id": nid, "connections": count}
                 for nid, count in top_connected

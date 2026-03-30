@@ -237,3 +237,82 @@ class TestStats:
         assert "semantic" in s["edges_by_relation"]
         assert "causal" in s["edges_by_relation"]
         assert len(s["most_connected"]) > 0
+
+    def test_stats_orphan_count(self, tmp_graph):
+        """Nodes with no edges should be counted as orphans."""
+        tmp_graph.add_node(MemoryNode(id="pat-001", content="Connected", timestamp="2026-01-01",
+                                       metadata={"type": "pattern"}))
+        tmp_graph.add_node(MemoryNode(id="pat-002", content="Connected", timestamp="2026-01-01",
+                                       metadata={"type": "pattern"}))
+        tmp_graph.add_node(MemoryNode(id="pat-003", content="Orphan", timestamp="2026-01-01",
+                                       metadata={"type": "pattern"}))
+        tmp_graph.add_edge(Edge(source="pat-001", target="pat-002", relation="semantic"))
+        s = tmp_graph.stats()
+        assert s["orphan_count"] == 1
+
+    def test_stats_no_orphans(self, populated_graph):
+        """All nodes in populated_graph are connected."""
+        s = populated_graph.stats()
+        assert s["orphan_count"] == 0
+
+
+# --- Adjacency Index ---
+
+class TestAdjacencyIndex:
+    def test_edges_for_uses_index(self, populated_graph):
+        """edges_for should return correct results from adjacency index."""
+        edges = populated_graph.edges_for("pat-001")
+        assert len(edges) == 2
+        relations = {e.relation for e in edges}
+        assert relations == {"semantic", "causal"}
+
+    def test_adjacency_index_after_delete(self, populated_graph):
+        """Adjacency index should be rebuilt after node deletion."""
+        populated_graph.delete_node("pat-002")
+        edges = populated_graph.edges_for("pat-001")
+        assert len(edges) == 1
+        assert edges[0].relation == "causal"
+
+    def test_adjacency_index_after_edge_remove(self, populated_graph):
+        """Adjacency index should be rebuilt after edge removal."""
+        populated_graph.remove_edge("pat-001", "pat-002", "semantic")
+        edges = populated_graph.edges_for("pat-001")
+        assert len(edges) == 1
+
+    def test_adjacency_index_on_load(self, tmp_path):
+        """Adjacency index should be built from loaded data."""
+        g1 = BrainiacGraph(graph_dir=tmp_path)
+        g1.add_node(MemoryNode(id="a", content="A", timestamp="2026-01-01"))
+        g1.add_node(MemoryNode(id="b", content="B", timestamp="2026-01-01"))
+        g1.add_edge(Edge(source="a", target="b", relation="semantic"))
+        g1.save()
+
+        g2 = BrainiacGraph(graph_dir=tmp_path)
+        assert len(g2.edges_for("a")) == 1
+        assert len(g2.edges_for("b")) == 1
+
+
+# --- Atomic Save ---
+
+class TestAtomicSave:
+    def test_directory_level_atomic_save(self, tmp_path):
+        """Both nodes.json and edges.json should be written together."""
+        g = BrainiacGraph(graph_dir=tmp_path)
+        g.add_node(MemoryNode(id="pat-001", content="Test", timestamp="2026-01-01"))
+        g.add_edge(Edge(source="pat-001", target="pat-001", relation="semantic"))
+        g.save()
+
+        # Both files should exist and be valid JSON
+        nodes = json.loads((tmp_path / "nodes.json").read_text(encoding="utf-8"))
+        edges = json.loads((tmp_path / "edges.json").read_text(encoding="utf-8"))
+        assert len(nodes) == 1
+        assert len(edges) == 1
+
+    def test_no_temp_files_after_save(self, tmp_path):
+        """No .tmp or .save- directories should remain after save."""
+        g = BrainiacGraph(graph_dir=tmp_path)
+        g.add_node(MemoryNode(id="pat-001", content="Test", timestamp="2026-01-01"))
+        g.save()
+
+        remaining = list(tmp_path.glob(".save-*"))
+        assert len(remaining) == 0
