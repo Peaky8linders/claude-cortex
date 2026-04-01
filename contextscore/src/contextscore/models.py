@@ -69,6 +69,8 @@ class IssueCause(enum.Enum):
     ATTENTION_BUDGET_EXCEEDED = "attention_budget_exceeded"
     HIGH_COST_LOW_SIGNAL = "high_cost_low_signal"
     CACHEABLE_CONTENT_NOT_CACHED = "cacheable_content_not_cached"
+    CACHE_MISS_PATTERN_DETECTED = "cache_miss_pattern_detected"
+    SENTINEL_RISK_DETECTED = "sentinel_risk_detected"
 
 
 # ── Cause → Description + Fix mapping ──
@@ -225,6 +227,16 @@ CAUSE_CATALOG: dict[IssueCause, dict] = {
     IssueCause.CACHEABLE_CONTENT_NOT_CACHED: {
         "description": "Static content (system prompts, tool definitions, reference docs) is being re-sent on every request instead of using prompt caching.",
         "fix": "Enable prompt caching for static context components. OpenAI and Anthropic cache prompts over 1024 tokens at ~10% cost. Separate static from dynamic context.",
+        "category": "economics",
+    },
+    IssueCause.CACHE_MISS_PATTERN_DETECTED: {
+        "description": "Content patterns suggest the prompt cache may be rebuilding unnecessarily, causing higher costs on resume or after context changes.",
+        "fix": "Resume sessions trigger a full cache miss on the first API call. For small tasks, start a fresh session instead. Check if conversation discusses Claude Code billing internals (sentinel bug).",
+        "category": "economics",
+    },
+    IssueCause.SENTINEL_RISK_DETECTED: {
+        "description": "Conversation content contains billing-related strings that may trigger a cache prefix corruption bug in the standalone Claude Code binary.",
+        "fix": "Use `npx @anthropic-ai/claude-code` instead of the standalone binary when discussing Claude Code internals, billing, or cache headers. This avoids the sentinel replacement in the custom Bun fork.",
         "category": "economics",
     },
 }

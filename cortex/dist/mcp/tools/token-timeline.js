@@ -1,8 +1,8 @@
 /**
  * Token Timeline Tool — Time-series token consumption with spike detection
  */
-import { getSessionEntries, estimateTokensForEntry } from "../data/session-reader.js";
-import { computeSessionCost } from "../data/cost-tracker.js";
+import { getSessionEntries, estimateTokensForEntry, groupByPromptTurn } from "../data/session-reader.js";
+import { computeSessionCost, detectCacheAnomaly, estimateCacheAwareCost } from "../data/cost-tracker.js";
 export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir) {
     const session = getSessionEntries(sessionId, knowledgeDir);
     const entries = session.entries.filter(e => e.type !== "session_start" && e.type !== "session_end");
@@ -99,6 +99,23 @@ export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir
     const peakBucket = timeline.reduce((a, b) => b.tokens_in > a.tokens_in ? b : a, timeline[0]);
     // Model-aware cost (defaults to sonnet pricing for entries without model field)
     const sessionCost = computeSessionCost(entries);
+    // Cache efficiency analysis
+    const sessionType = session.session_type ?? session.start?.session_type ?? "startup";
+    const anomaly = detectCacheAnomaly(entries, sessionType);
+    const cacheAware = estimateCacheAwareCost(entries, sessionType);
+    // Annotate cache-related spikes (spikes on first turn of resume sessions)
+    const turns = groupByPromptTurn(entries);
+    const firstTurnTs = turns.length > 0 && turns[0].length > 0
+        ? new Date(turns[0][0].ts).getTime()
+        : 0;
+    for (const spike of spikes) {
+        const spikeTime = new Date(spike.ts).getTime();
+        // If spike is within 1 minute of first turn and session is resume, it's cache-related
+        if (sessionType === "resume" && Math.abs(spikeTime - firstTurnTs) < 60_000) {
+            spike.cache_related = true;
+            spike.cause = `${spike.cause} (likely cache miss on resume)`;
+        }
+    }
     return {
         timeline,
         spikes,
@@ -111,6 +128,13 @@ export function computeTokenTimeline(sessionId, windowMinutes = 60, knowledgeDir
             estimated_cost: sessionCost.total_usd,
             by_tool: byTool,
             cost_by_model: Object.keys(sessionCost.by_model).length > 0 ? sessionCost.by_model : undefined,
+            cache_efficiency: {
+                session_type: sessionType,
+                first_turn_ratio: anomaly.ratio,
+                cache_miss_detected: anomaly.detected,
+                estimated_savings_usd: cacheAware.cache_savings_est,
+                cache_hit_ratio_est: cacheAware.cache_hit_ratio_est,
+            },
         },
     };
 }

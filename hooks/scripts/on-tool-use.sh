@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse: Log tool event to session journal (async, no latency impact)
+# PostToolUse: Log tool event to session journal + per-turn cost tracking (async, no latency impact)
 set -euo pipefail
 
 KNOWLEDGE_DIR="$HOME/.claude/knowledge"
@@ -12,7 +12,7 @@ TIMESTAMP_EPOCH=$(date +%s 2>/dev/null || echo "0")
 
 # Capture tool name and estimate tokens from stdin size
 # Sanitize all values to prevent JSON injection (strip quotes, backslashes, control chars)
-sanitize() { echo "$1" | tr -d '"\\\n\r\t$`(){}!' | head -c 100; }
+sanitize() { echo "$1" | tr -cd 'a-zA-Z0-9_-' | head -c 100; }
 TOOL_NAME=$(sanitize "${CLAUDE_TOOL_NAME:-unknown}")
 SESSION_ID=$(sanitize "${CLAUDE_SESSION_ID:-$$}")
 SAFE_TYPE=$(sanitize "$EVENT_TYPE")
@@ -25,6 +25,22 @@ TOKENS_EST=$(( INPUT_SIZE / 4 ))
 
 # Append enriched event to session journal (v2: adds model, prompt_id for Dynatrace-style correlation)
 echo "{\"type\":\"$SAFE_TYPE\",\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL_NAME\",\"sid\":\"$SESSION_ID\",\"tokens_est\":$TOKENS_EST,\"event\":\"PostToolUse\",\"model\":\"$MODEL\",\"prompt_id\":\"$PROMPT_ID\"}" >> "$JOURNAL" 2>/dev/null || true
+
+# Per-turn cost tracking for cache anomaly detection
+TURNS_FILE="$KNOWLEDGE_DIR/session-${SESSION_ID}-turns.jsonl"
+SESSION_TYPE="${CLAUDE_SESSION_TYPE:-}"
+# If env var not set, read from state file written by on-session-start.sh
+if [ -z "$SESSION_TYPE" ]; then
+  TYPE_FILE="$KNOWLEDGE_DIR/session-${SESSION_ID}-type"
+  SESSION_TYPE=$(cat "$TYPE_FILE" 2>/dev/null || echo "startup")
+fi
+# Detect first turn: turns file doesn't exist yet or this is a new prompt_id
+IS_FIRST_TURN="false"
+if [ ! -f "$TURNS_FILE" ]; then
+  IS_FIRST_TURN="true"
+fi
+# Append per-turn entry (one line per tool call, grouped by prompt_id downstream)
+echo "{\"prompt_id\":\"$PROMPT_ID\",\"tokens_est\":$TOKENS_EST,\"is_first_turn\":$IS_FIRST_TURN,\"session_type\":\"$SESSION_TYPE\",\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL_NAME\"}" >> "$TURNS_FILE" 2>/dev/null || true
 
 # Usage tip detection: run every 10 tool calls (async, non-blocking)
 COUNTER_FILE="$KNOWLEDGE_DIR/session-${SESSION_ID}-posttooluse-count"
