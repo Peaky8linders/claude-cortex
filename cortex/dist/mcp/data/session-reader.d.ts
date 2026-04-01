@@ -18,6 +18,9 @@ export interface JournalEntry {
     success?: boolean;
     duration_ms?: number;
     decision?: "allow" | "deny";
+    session_type?: "startup" | "resume" | "compact" | "clear";
+    is_first_turn?: boolean;
+    context_tokens_est?: number;
 }
 export interface SessionEdit {
     path: string;
@@ -32,6 +35,7 @@ export interface SessionBoundary {
     start?: JournalEntry;
     end?: JournalEntry;
     entries: JournalEntry[];
+    session_type?: "startup" | "resume" | "compact" | "clear";
 }
 export declare function getKnowledgeDir(): string;
 export declare function getHooksStateDir(): string;

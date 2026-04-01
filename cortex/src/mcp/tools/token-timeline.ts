@@ -2,8 +2,8 @@
  * Token Timeline Tool — Time-series token consumption with spike detection
  */
 
-import { getSessionEntries, estimateTokensForEntry, type JournalEntry } from "../data/session-reader.js";
-import { computeSessionCost } from "../data/cost-tracker.js";
+import { getSessionEntries, estimateTokensForEntry, groupByPromptTurn, type JournalEntry } from "../data/session-reader.js";
+import { computeSessionCost, detectCacheAnomaly, estimateCacheAwareCost } from "../data/cost-tracker.js";
 
 export interface TimelineBucket {
   ts: string;
@@ -19,6 +19,15 @@ export interface Spike {
   tokens: number;
   cause: string;
   minute_bucket: number;
+  cache_related?: boolean;
+}
+
+export interface CacheEfficiencySummary {
+  session_type: string;
+  first_turn_ratio: number;
+  cache_miss_detected: boolean;
+  estimated_savings_usd: number;
+  cache_hit_ratio_est: number;
 }
 
 export interface TokenSummary {
@@ -30,6 +39,7 @@ export interface TokenSummary {
   estimated_cost: number;
   by_tool: Record<string, number>;
   cost_by_model?: Record<string, { tokens: number; cost_usd: number }>;
+  cache_efficiency?: CacheEfficiencySummary;
 }
 
 export interface TokenTimelineResult {
@@ -163,6 +173,26 @@ export function computeTokenTimeline(
   // Model-aware cost (defaults to sonnet pricing for entries without model field)
   const sessionCost = computeSessionCost(entries);
 
+  // Cache efficiency analysis
+  const sessionType = session.session_type ?? session.start?.session_type ?? "startup";
+  const anomaly = detectCacheAnomaly(entries, sessionType);
+  const cacheAware = estimateCacheAwareCost(entries, sessionType);
+
+  // Annotate cache-related spikes (spikes on first turn of resume sessions)
+  const turns = groupByPromptTurn(entries);
+  const firstTurnTs = turns.length > 0 && turns[0].length > 0
+    ? new Date(turns[0][0].ts).getTime()
+    : 0;
+
+  for (const spike of spikes) {
+    const spikeTime = new Date(spike.ts).getTime();
+    // If spike is within 1 minute of first turn and session is resume, it's cache-related
+    if (sessionType === "resume" && Math.abs(spikeTime - firstTurnTs) < 60_000) {
+      spike.cache_related = true;
+      spike.cause = `${spike.cause} (likely cache miss on resume)`;
+    }
+  }
+
   return {
     timeline,
     spikes,
@@ -175,6 +205,13 @@ export function computeTokenTimeline(
       estimated_cost: sessionCost.total_usd,
       by_tool: byTool,
       cost_by_model: Object.keys(sessionCost.by_model).length > 0 ? sessionCost.by_model : undefined,
+      cache_efficiency: {
+        session_type: sessionType,
+        first_turn_ratio: anomaly.ratio,
+        cache_miss_detected: anomaly.detected,
+        estimated_savings_usd: cacheAware.cache_savings_est,
+        cache_hit_ratio_est: cacheAware.cache_hit_ratio_est,
+      },
     },
   };
 }

@@ -14,6 +14,10 @@ export interface SessionSummary {
     tool_count: number;
     event_count: number;
     model_mix: Record<string, number>;
+    session_type?: "startup" | "resume" | "compact" | "clear";
+    first_turn_tokens?: number;
+    cache_miss_detected?: boolean;
+    cache_savings_est?: number;
 }
 export interface TrendData {
     sessions: SessionSummary[];
@@ -22,6 +26,10 @@ export interface TrendData {
     avg_duration: number;
     token_trend: "up" | "down" | "stable";
     cost_trend: "up" | "down" | "stable";
+    resume_session_count: number;
+    avg_resume_overhead_usd: number;
+    total_cache_savings_est: number;
+    cache_efficiency_trend: "improving" | "degrading" | "stable";
 }
 /**
  * Parse all sessions from the journal and compute per-session summaries.

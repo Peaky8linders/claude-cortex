@@ -71,7 +71,7 @@ export function parseSessionBoundaries(all) {
     let current = { entries: [] };
     for (const entry of all) {
         if (entry.type === "session_start") {
-            current = { start: entry, entries: [] };
+            current = { start: entry, entries: [], session_type: entry.session_type };
         }
         else if (entry.type === "session_end") {
             current.end = entry;

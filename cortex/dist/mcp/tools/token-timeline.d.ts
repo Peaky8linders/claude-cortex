@@ -14,6 +14,14 @@ export interface Spike {
     tokens: number;
     cause: string;
     minute_bucket: number;
+    cache_related?: boolean;
+}
+export interface CacheEfficiencySummary {
+    session_type: string;
+    first_turn_ratio: number;
+    cache_miss_detected: boolean;
+    estimated_savings_usd: number;
+    cache_hit_ratio_est: number;
 }
 export interface TokenSummary {
     total_tokens: number;
@@ -27,6 +35,7 @@ export interface TokenSummary {
         tokens: number;
         cost_usd: number;
     }>;
+    cache_efficiency?: CacheEfficiencySummary;
 }
 export interface TokenTimelineResult {
     timeline: TimelineBucket[];

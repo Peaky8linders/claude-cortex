@@ -26,6 +26,7 @@ import { computeQualityHeatmap } from "./quality-heatmap.js";
 import { computeGraphExplorer } from "./graph-explorer.js";
 import { getSessionEntries } from "../data/session-reader.js";
 import { getAllSessionSummaries, computeTrends } from "../data/cross-session.js";
+import { analyzeCacheEfficiency } from "../data/cache-analyzer.js";
 
 export interface DashboardResult {
   path: string;
@@ -63,6 +64,9 @@ export async function computeUnifiedDashboard(
     ? computeTrends(getAllSessionSummaries(knowledgeDir))
     : null;
 
+  // Cache efficiency analysis
+  const cacheReport = analyzeCacheEfficiency(sessionId, knowledgeDir);
+
   // Build data payload for the HTML
   const dashboardData = {
     kpis: {
@@ -97,6 +101,7 @@ export async function computeUnifiedDashboard(
     graph: graphData,
     events: session.entries.slice(-50).reverse(),
     crossSession: crossSessionData,
+    cacheEfficiency: cacheReport,
   };
 
   // Generate HTML
@@ -214,6 +219,18 @@ function buildDashboardHtml(dataJson: string): string {
     <div class="card">
       <h3>Cost by Model</h3>
       <div class="chart-container"><canvas id="chart-cost"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Cache Efficiency Row -->
+  <div class="grid chart-row" id="cache-row">
+    <div class="card">
+      <h3>Cache Efficiency</h3>
+      <div class="chart-container"><canvas id="chart-cache"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Cost Recommendations</h3>
+      <div class="event-table" id="cost-recs"></div>
     </div>
   </div>
 
@@ -573,6 +590,75 @@ function buildDashboardHtml(dataJson: string): string {
       });
       html += '</tbody></table>';
       container.innerHTML = html;
+    })();
+
+    // ── Cache Efficiency ──
+    (function() {
+      var ce = D.cacheEfficiency;
+      if (!ce || ce.total_turns === 0) {
+        document.getElementById('cache-row').style.display = 'none';
+        return;
+      }
+
+      var [c, ctx] = setupCanvas('chart-cache');
+      var pad = {t:30, r:30, b:40, l:60};
+      var w = c.width - pad.l - pad.r;
+      var h = c.height - pad.t - pad.b;
+
+      // Draw cache efficiency gauge
+      var efficiency = ce.cache_efficiency_pct;
+      var gaugeColor = efficiency >= 80 ? '#7ee787' : efficiency >= 50 ? '#ffa657' : '#f85149';
+
+      // Semicircle gauge
+      var gx = c.width / 2, gy = c.height * 0.55;
+      var gr = Math.min(c.width, c.height) * 0.3;
+
+      // Background arc
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, Math.PI, 0);
+      ctx.strokeStyle = '#21262d'; ctx.lineWidth = 20; ctx.lineCap = 'round'; ctx.stroke();
+
+      // Value arc
+      var angle = Math.PI + (efficiency / 100) * Math.PI;
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, Math.PI, angle);
+      ctx.strokeStyle = gaugeColor; ctx.lineWidth = 20; ctx.lineCap = 'round'; ctx.stroke();
+
+      // Center text
+      ctx.fillStyle = '#f0f6fc'; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(efficiency + '%', gx, gy - 10);
+      ctx.fillStyle = '#8b949e'; ctx.font = '12px sans-serif';
+      ctx.fillText('Cache Efficiency', gx, gy + 10);
+
+      // Session type badge
+      var typeColor = ce.session_type === 'resume' ? '#ffa657' : '#7ee787';
+      ctx.fillStyle = typeColor; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(ce.session_type.toUpperCase() + ' session', gx, gy + 30);
+
+      // Stats below
+      ctx.fillStyle = '#8b949e'; ctx.font = '11px sans-serif';
+      ctx.fillText(ce.total_turns + ' turns | Savings: ' + fmtUsd(ce.estimated_cache_savings_usd), gx, gy + gr + 20);
+      if (ce.cache_miss_detected) {
+        ctx.fillStyle = '#f85149';
+        ctx.fillText('Cache miss detected (first turn ' + ce.first_turn_cost_ratio + 'x avg)', gx, gy + gr + 38);
+      }
+
+      // Recommendations panel
+      var recsContainer = document.getElementById('cost-recs');
+      if (ce.recommendations.length) {
+        var html = '<div style="padding:4px 0;">';
+        ce.recommendations.forEach(function(r, i) {
+          var icon = r.includes('miss') || r.includes('spike') ? '&#9888;' : r.includes('saving') || r.includes('good') ? '&#10003;' : '&#8226;';
+          var color = r.includes('miss') || r.includes('spike') ? '#ffa657' : r.includes('saving') || r.includes('good') ? '#7ee787' : '#c9d1d9';
+          html += '<div style="padding:8px 12px;margin:4px 0;background:#1c2128;border-radius:6px;border-left:3px solid '+color+';font-size:12px;line-height:1.5;">';
+          html += '<span style="color:'+color+';">'+icon+'</span> ' + esc(r);
+          html += '</div>';
+        });
+        html += '</div>';
+        recsContainer.innerHTML = html;
+      } else {
+        recsContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#8b949e;">No recommendations</div>';
+      }
     })();
 
     // ── Knowledge Graph (Force-Directed) ──

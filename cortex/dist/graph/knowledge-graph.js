@@ -329,9 +329,21 @@ export class KnowledgeGraph {
             });
         }
         // R9: Heavy model on simple tasks → use Haiku for simple stuff
-        const toolNodes = nodes.filter(n => n.type === "tool");
-        const simpleOpsOnHeavyModel = toolNodes.filter(n => n.properties.model?.toString().includes("opus") &&
-            (n.name.includes("Read") || n.name.includes("Search") || n.name.includes("Glob")));
+        const toolNodes = nodes.filter((n) => n.type === "tool");
+        // Detect whether the overall session appears to be using a heavy model (e.g., Opus).
+        const heavyModelInSession = nodes.some((n) => {
+            const modelHint = (n.properties?.model ?? n.name ?? "").toString().toLowerCase();
+            return modelHint.includes("opus");
+        });
+        const simpleOpsOnHeavyModel = heavyModelInSession
+            ? toolNodes.filter((n) => {
+                const name = n.name ?? "";
+                const isSimpleOp = name.includes("Read") ||
+                    name.includes("Search") ||
+                    name.includes("Glob");
+                return isSimpleOp;
+            })
+            : [];
         if (simpleOpsOnHeavyModel.length > 5) {
             recs.push({
                 id: `rec-${recId++}`, type: "suggestion",
@@ -344,7 +356,6 @@ export class KnowledgeGraph {
             });
         }
         // R10: Long session with many topics → fresh chat for new topics
-        const allTypes = new Set(nodes.map(n => n.type));
         const distinctFiles = nodes.filter(n => n.type === "file");
         if (nodes.length > 40 && distinctFiles.length > 15 && clusters.length > 4) {
             recs.push({
@@ -359,7 +370,9 @@ export class KnowledgeGraph {
         }
         // R11: Outline-first workflow not detected for large writes
         const largeWrites = nodes.filter(n => n.type === "file" && n.tokenCost > 2000 &&
-            edges.filter(e => e.target === n.id && (e.type === "writes" || e.type === "modifies")).length > 2);
+            edges
+                .filter(e => e.target === n.id && (e.type === "writes" || e.type === "modifies"))
+                .reduce((count, e) => count + (e.weight ?? 1), 0) > 2);
         if (largeWrites.length > 0) {
             recs.push({
                 id: `rec-${recId++}`, type: "suggestion",
@@ -371,9 +384,9 @@ export class KnowledgeGraph {
                 estimatedSavings: largeWrites.reduce((a, n) => a + Math.floor(n.tokenCost * 0.5), 0),
             });
         }
-        // R12: Batch tasks suggestion when many small tool bursts detected
-        const toolBursts = toolNodes.filter(n => n.accessCount === 1);
-        if (toolBursts.length > 20 && queryNodes.length > 10) {
+        // R12: Batch tasks suggestion when many small tool invocations detected
+        const totalToolAccesses = toolNodes.reduce((sum, n) => sum + (n.accessCount || 0), 0);
+        if (totalToolAccesses > 20 && queryNodes.length > 10) {
             recs.push({
                 id: `rec-${recId++}`, type: "suggestion",
                 title: "Batch your tasks into fewer messages",

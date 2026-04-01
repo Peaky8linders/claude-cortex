@@ -32,6 +32,20 @@ class EconomicsAnalyzer(BaseAnalyzer):
         'you are an', 'always be', 'never make', 'always cite',
     }
 
+    # Sentinel risk: billing-related strings that can corrupt cache prefix
+    SENTINEL_RISK_KEYWORDS = {
+        'cch=', 'billing attribution', 'anthropic-version header',
+        'cache_creation_input_tokens', 'cache_read_input_tokens',
+        'billing sentinel', 'billing header', 'x-cache',
+        'prompt cache miss', 'cache prefix',
+    }
+
+    # Cache miss pattern: keywords indicating resume or cache rebuild discussion
+    CACHE_MISS_KEYWORDS = {
+        '--resume', 'deferred_tools_delta', 'cache_creation',
+        'cache miss', 'full cache rebuild', 'cache broken',
+    }
+
     def analyze(self, segments: list[str], query: str) -> DimensionScore:
         issues: list[ContextIssue] = []
 
@@ -92,6 +106,40 @@ class EconomicsAnalyzer(BaseAnalyzer):
                     estimated_token_savings=int(static_tokens * 0.9),  # 90% savings from caching
                     evidence=f"{len(static_segments)} segments ({static_tokens} tokens) appear static and cacheable",
                 ))
+
+        # ── Sentinel risk detection ──
+        sentinel_segments = []
+        for i, seg in enumerate(segments):
+            seg_lower = seg.lower()
+            if any(kw in seg_lower for kw in self.SENTINEL_RISK_KEYWORDS):
+                sentinel_segments.append(i)
+
+        if sentinel_segments:
+            issues.append(ContextIssue.from_cause(
+                cause=IssueCause.SENTINEL_RISK_DETECTED,
+                severity=Severity.HIGH,
+                affected_segments=sentinel_segments,
+                estimated_improvement=5.0,
+                estimated_token_savings=0,
+                evidence=f"{len(sentinel_segments)} segments contain billing-related strings that may corrupt cache prefix in standalone binary",
+            ))
+
+        # ── Cache miss pattern detection ──
+        cache_miss_segments = []
+        for i, seg in enumerate(segments):
+            seg_lower = seg.lower()
+            if any(kw in seg_lower for kw in self.CACHE_MISS_KEYWORDS):
+                cache_miss_segments.append(i)
+
+        if cache_miss_segments:
+            issues.append(ContextIssue.from_cause(
+                cause=IssueCause.CACHE_MISS_PATTERN_DETECTED,
+                severity=Severity.MEDIUM,
+                affected_segments=cache_miss_segments,
+                estimated_improvement=3.0,
+                estimated_token_savings=0,
+                evidence=f"{len(cache_miss_segments)} segments discuss cache miss patterns — context may trigger or be affected by known cache bugs",
+            ))
 
         # ── Score ──
         score = 100.0
