@@ -9,10 +9,13 @@ export interface GraphExplorerNode {
     id: string;
     name: string;
     type: string;
+    brainiac_type: string;
     token_cost: number;
     access_count: number;
     quality_impact: number;
     cluster_id: number;
+    keywords: string[];
+    degree: number;
 }
 export interface GraphExplorerEdge {
     source: string;

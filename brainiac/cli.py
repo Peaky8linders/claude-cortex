@@ -236,9 +236,30 @@ def cmd_consolidate(graph: BrainiacGraph):
 
     merges = find_merge_candidates(graph, all_embs)
     if merges:
+        # Group by review level
+        auto = [m for m in merges if m.review_level == "auto"]
+        review = [m for m in merges if m.review_level == "review"]
+        manual = [m for m in merges if m.review_level == "manual"]
+
         print(f"MERGE candidates ({len(merges)}):")
-        for a, b, score in merges:
-            print(f"  {a} + {b} (similarity: {score})")
+        if auto:
+            print(f"\n  HIGH confidence (safe to merge):")
+            for m in auto:
+                extras = []
+                if m.shared_projects:
+                    extras.append(f"projects: {','.join(m.shared_projects)}")
+                if m.shared_tags:
+                    extras.append(f"tags: {','.join(m.shared_tags)}")
+                extra_str = f" [{'; '.join(extras)}]" if extras else ""
+                print(f"    {m.id_a} + {m.id_b} (confidence: {m.confidence:.3f}){extra_str}")
+        if review:
+            print(f"\n  MEDIUM confidence (review recommended):")
+            for m in review:
+                print(f"    {m.id_a} + {m.id_b} (confidence: {m.confidence:.3f}, similarity: {m.embedding_similarity})")
+        if manual:
+            print(f"\n  LOW confidence (manual verification needed):")
+            for m in manual:
+                print(f"    {m.id_a} + {m.id_b} (confidence: {m.confidence:.3f}, similarity: {m.embedding_similarity})")
     else:
         print("No merge candidates.")
 
@@ -318,6 +339,81 @@ def cmd_promote(graph: BrainiacGraph, node_id: str, salience: str = "active"):
     node.metadata.pop("demoted_at", None)
     graph.save()
     print(f"Promoted {node_id}: {old_salience} \u2192 {salience}")
+
+
+def cmd_integrity(graph: BrainiacGraph, fix: bool = False):
+    """Check graph integrity — orphans, dangling edges, invalid types."""
+    if fix:
+        report = graph.repair()
+        if report.is_healthy:
+            print("Graph integrity: HEALTHY (no issues to fix)")
+        else:
+            graph.save()
+            print(report.summary())
+            print("\nRepairs applied and saved.")
+    else:
+        report = graph.validate()
+        print(report.summary())
+        if not report.is_healthy:
+            print("\nRun with --fix to repair automatically.")
+
+
+_METADATA_EXPORT_ALLOWLIST = {
+    "type", "projects", "confidence", "status", "salience",
+    "source", "access_count", "unique_sessions",
+}
+
+
+def cmd_export(graph: BrainiacGraph, fmt: str = "json-ld"):
+    """Export the knowledge graph in a portable format."""
+    if fmt == "json-ld":
+        nodes_out = []
+        for n in graph.nodes.values():
+            # Filter metadata to allowlisted keys to avoid leaking sensitive fields
+            safe_meta = {k: v for k, v in n.metadata.items() if k in _METADATA_EXPORT_ALLOWLIST}
+            nodes_out.append({
+                "@type": "KnowledgeNode",
+                "@id": n.id,
+                "content": n.content,
+                "created": n.timestamp,
+                "keywords": n.keywords,
+                "tags": n.tags,
+                "metadata": safe_meta,
+            })
+
+        edges_out = []
+        for e in graph.edges:
+            edges_out.append({
+                "@type": "KnowledgeEdge",
+                "source": e.source,
+                "target": e.target,
+                "relation": e.relation,
+                "weight": e.weight,
+                "metadata": e.metadata,
+            })
+
+        export_data = {
+            "@context": {
+                "@vocab": "https://cortex.local/schema/",
+                "source": {"@type": "@id"},
+                "target": {"@type": "@id"},
+            },
+            "@type": "KnowledgeGraph",
+            "exportedAt": datetime.now().isoformat(timespec="seconds"),
+            "stats": graph.stats(),
+            "nodes": nodes_out,
+            "edges": edges_out,
+        }
+
+        output_path = graph.graph_dir / "export.jsonld"
+        output_path.write_text(
+            json.dumps(export_data, indent=2, default=str),
+            encoding="utf-8",
+        )
+        print(f"Exported {len(nodes_out)} nodes and {len(edges_out)} edges to:")
+        print(f"  {output_path}")
+    else:
+        print(f"Unknown export format: {fmt}. Supported: json-ld")
 
 
 def cmd_render(graph: BrainiacGraph):
@@ -511,6 +607,16 @@ def _dispatch_render(graph, _args):
 def _dispatch_migrate(graph, _args):
     cmd_migrate(graph)
 
+def _dispatch_integrity(graph, args):
+    cmd_integrity(graph, fix="--fix" in args)
+
+def _dispatch_export(graph, args):
+    fmt = "json-ld"
+    for arg in args:
+        if arg.startswith("--format="):
+            fmt = arg.split("=")[1]
+    cmd_export(graph, fmt)
+
 
 COMMANDS = {
     "stats": _dispatch_stats,
@@ -524,6 +630,8 @@ COMMANDS = {
     "promote": _dispatch_promote,
     "render": _dispatch_render,
     "migrate": _dispatch_migrate,
+    "integrity": _dispatch_integrity,
+    "export": _dispatch_export,
 }
 
 
