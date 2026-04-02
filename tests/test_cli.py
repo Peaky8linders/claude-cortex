@@ -118,7 +118,8 @@ class TestParseFrontmatter:
 class TestCommandRegistry:
     def test_all_commands_registered(self):
         expected = {"stats", "quality", "expand", "search", "add", "link",
-                    "consolidate", "demote", "promote", "render", "migrate"}
+                    "consolidate", "demote", "promote", "render", "migrate",
+                    "integrity", "export"}
         assert set(COMMANDS.keys()) == expected
 
     def test_all_commands_are_callable(self):
