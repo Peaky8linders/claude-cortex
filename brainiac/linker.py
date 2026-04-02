@@ -30,12 +30,20 @@ def link_new_node(graph: BrainiacGraph, node: MemoryNode, all_embeddings: Option
         similar = embeddings.find_similar(node.embedding, other_embeddings, top_k=10)
         for target_id, score in similar:
             if score >= SEMANTIC_THRESHOLD:
+                # Boost confidence for nodes sharing projects/tags
+                target_node = graph.get_node(target_id)
+                confidence = round(score, 3)
+                if target_node:
+                    shared_projects = set(node.metadata.get("projects", [])) & set(target_node.metadata.get("projects", []))
+                    shared_tags = set(node.tags) & set(target_node.tags)
+                    confidence = min(1.0, round(score + len(shared_projects) * 0.02 + len(shared_tags) * 0.01, 3))
+
                 graph.add_edge(Edge(
                     source=node.id,
                     target=target_id,
                     relation="semantic",
-                    weight=round(score, 3),
-                    metadata={"auto": True, "created": _now()},
+                    weight=confidence,
+                    metadata={"auto": True, "created": _now(), "confidence": confidence},
                 ))
 
     # --- Temporal edges ---

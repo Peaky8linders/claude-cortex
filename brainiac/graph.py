@@ -14,6 +14,15 @@ from typing import Optional
 from . import GRAPH_DIR
 
 
+# --- Controlled vocabulary ---
+VALID_RELATIONS = frozenset({"semantic", "temporal", "causal", "entity"})
+
+VALID_NODE_TYPES = frozenset({
+    "pattern", "antipattern", "workflow", "hypothesis",
+    "solution", "decision", "memory",
+})
+
+
 @dataclass
 class MemoryNode:
     """A-MEM inspired atomic memory unit with 7 core fields."""
@@ -58,6 +67,40 @@ class Edge:
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
+@dataclass
+class IntegrityReport:
+    """Result of a graph integrity check."""
+
+    orphan_nodes: list[str] = field(default_factory=list)
+    invalid_edges: list[str] = field(default_factory=list)
+    invalid_relations: list[str] = field(default_factory=list)
+    invalid_node_types: list[str] = field(default_factory=list)
+    dangling_links: list[str] = field(default_factory=list)
+
+    @property
+    def is_healthy(self) -> bool:
+        return not any([
+            self.orphan_nodes, self.invalid_edges, self.invalid_relations,
+            self.invalid_node_types, self.dangling_links,
+        ])
+
+    def summary(self) -> str:
+        if self.is_healthy:
+            return "Graph integrity: HEALTHY"
+        lines = ["Graph integrity: ISSUES FOUND"]
+        if self.orphan_nodes:
+            lines.append(f"  Orphan nodes ({len(self.orphan_nodes)}): {', '.join(self.orphan_nodes[:5])}")
+        if self.invalid_edges:
+            lines.append(f"  Invalid edges ({len(self.invalid_edges)}): {', '.join(self.invalid_edges[:5])}")
+        if self.invalid_relations:
+            lines.append(f"  Invalid relations ({len(self.invalid_relations)}): {', '.join(self.invalid_relations[:5])}")
+        if self.invalid_node_types:
+            lines.append(f"  Invalid node types ({len(self.invalid_node_types)}): {', '.join(self.invalid_node_types[:5])}")
+        if self.dangling_links:
+            lines.append(f"  Dangling links ({len(self.dangling_links)}): {', '.join(self.dangling_links[:5])}")
+        return "\n".join(lines)
+
+
 class BrainiacGraph:
     """JSON-backed knowledge graph with typed edges and adjacency index."""
 
@@ -67,6 +110,7 @@ class BrainiacGraph:
         self.nodes: dict[str, MemoryNode] = {}
         self.edges: list[Edge] = []
         self._adj: dict[str, list[Edge]] = defaultdict(list)  # adjacency index
+        self._audit_log: list[dict] = []
         self._load()
 
     # --- Persistence ---
@@ -108,6 +152,7 @@ class BrainiacGraph:
         Writes both nodes.json and edges.json to a temp directory, then
         replaces them together. This prevents inconsistency if the process
         is killed between writing the two files.
+        Also persists any pending audit log entries.
         """
         nodes_json = json.dumps([n.to_dict() for n in self.nodes.values()], indent=2)
         edges_json = json.dumps([e.to_dict() for e in self.edges], indent=2)
@@ -128,24 +173,73 @@ class BrainiacGraph:
             # Clean up the (now empty) temp directory
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
+        # Persist audit log
+        audit_entries = self.flush_audit_log()
+        self._persist_audit(audit_entries)
+
+    # --- Audit Trail ---
+
+    def _audit(self, action: str, target: str, details: Optional[dict] = None):
+        """Record a graph mutation for audit trail."""
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "action": action,
+            "target": target,
+        }
+        if details:
+            entry["details"] = details
+        self._audit_log.append(entry)
+
+    def flush_audit_log(self) -> list[dict]:
+        """Return and clear the audit log. Called by save() to persist."""
+        log = self._audit_log
+        self._audit_log = []
+        return log
+
+    _AUDIT_MAX_LINES = 5000
+
+    def _persist_audit(self, entries: list[dict]):
+        """Append audit entries to the audit log file, rotating if too large."""
+        if not entries:
+            return
+        audit_path = self.graph_dir / "audit.jsonl"
+
+        # Rotate if file exceeds max lines
+        if audit_path.exists():
+            try:
+                existing = audit_path.read_text(encoding="utf-8").splitlines()
+                if len(existing) > self._AUDIT_MAX_LINES:
+                    # Keep the most recent half
+                    keep = existing[len(existing) // 2:]
+                    audit_path.write_text("\n".join(keep) + "\n", encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                pass
+
+        with open(audit_path, "a", encoding="utf-8") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+
     # --- Node CRUD ---
 
     def add_node(self, node: MemoryNode) -> MemoryNode:
         if node.id in self.nodes:
             raise ValueError(f"Node {node.id} already exists")
         self.nodes[node.id] = node
+        self._audit("add_node", node.id, {"type": node.metadata.get("type", "unknown")})
         return node
 
     def update_node(self, node_id: str, **kwargs) -> MemoryNode:
         if node_id not in self.nodes:
             raise KeyError(f"Node {node_id} not found")
         node = self.nodes[node_id]
-        for k, v in kwargs.items():
-            if hasattr(node, k):
-                setattr(node, k, v)
+        changed = {k: v for k, v in kwargs.items() if hasattr(node, k)}
+        for k, v in changed.items():
+            setattr(node, k, v)
+        self._audit("update_node", node_id, {"fields": list(changed.keys())})
         return node
 
     def delete_node(self, node_id: str):
+        self._audit("delete_node", node_id)
         self.nodes.pop(node_id, None)
         self.edges = [e for e in self.edges if e.source != node_id and e.target != node_id]
         self._rebuild_adj()
@@ -160,6 +254,17 @@ class BrainiacGraph:
     # --- Edge CRUD ---
 
     def add_edge(self, edge: Edge) -> Edge:
+        # Validate relation type
+        if edge.relation not in VALID_RELATIONS:
+            raise ValueError(
+                f"Invalid relation '{edge.relation}'. "
+                f"Must be one of: {', '.join(sorted(VALID_RELATIONS))}"
+            )
+        # Validate endpoint nodes exist
+        if edge.source not in self.nodes:
+            raise ValueError(f"Source node '{edge.source}' not found in graph")
+        if edge.target not in self.nodes:
+            raise ValueError(f"Target node '{edge.target}' not found in graph")
         # Deduplicate
         for e in self.edges:
             if e.source == edge.source and e.target == edge.target and e.relation == edge.relation:
@@ -167,6 +272,7 @@ class BrainiacGraph:
                 e.metadata.update(edge.metadata)
                 return e
         self.edges.append(edge)
+        self._audit("add_edge", f"{edge.source}->{edge.target}", {"relation": edge.relation})
         # Update adjacency index
         self._adj[edge.source].append(edge)
         self._adj[edge.target].append(edge)
@@ -178,6 +284,7 @@ class BrainiacGraph:
         return edge
 
     def remove_edge(self, source: str, target: str, relation: Optional[str] = None):
+        self._audit("remove_edge", f"{source}->{target}", {"relation": relation or "all"})
         self.edges = [
             e for e in self.edges
             if not (e.source == source and e.target == target and (relation is None or e.relation == relation))
@@ -241,6 +348,78 @@ class BrainiacGraph:
                 for nid, count in top_connected
             ],
         }
+
+    # --- Integrity Validation ---
+
+    def validate(self) -> IntegrityReport:
+        """Check graph integrity and return a report."""
+        report = IntegrityReport()
+
+        # Find orphan nodes (no edges at all)
+        connected_nodes: set[str] = set()
+        for e in self.edges:
+            connected_nodes.add(e.source)
+            connected_nodes.add(e.target)
+        for nid in self.nodes:
+            if nid not in connected_nodes:
+                report.orphan_nodes.append(nid)
+
+        # Find edges referencing non-existent nodes
+        for e in self.edges:
+            if e.source not in self.nodes:
+                report.invalid_edges.append(f"{e.source}->{e.target} (missing source)")
+            if e.target not in self.nodes:
+                report.invalid_edges.append(f"{e.source}->{e.target} (missing target)")
+
+        # Find invalid relation types
+        for e in self.edges:
+            if e.relation not in VALID_RELATIONS:
+                report.invalid_relations.append(f"{e.source}->{e.target}: '{e.relation}'")
+
+        # Find invalid node types
+        for n in self.nodes.values():
+            node_type = n.metadata.get("type", "")
+            if node_type and node_type not in VALID_NODE_TYPES:
+                report.invalid_node_types.append(f"{n.id}: '{node_type}'")
+
+        # Find dangling links (node.links referencing non-existent nodes)
+        for n in self.nodes.values():
+            for link_id in n.links:
+                if link_id not in self.nodes:
+                    report.dangling_links.append(f"{n.id} -> {link_id}")
+
+        return report
+
+    def repair(self) -> IntegrityReport:
+        """Fix integrity issues: remove dangling edges/links, remap invalid relations.
+
+        Returns the report of issues that were found and fixed.
+        """
+        report = self.validate()
+
+        # Remove edges with missing nodes
+        if report.invalid_edges:
+            self.edges = [
+                e for e in self.edges
+                if e.source in self.nodes and e.target in self.nodes
+            ]
+            self._audit("repair", "removed_dangling_edges", {"count": len(report.invalid_edges)})
+
+        # Remap invalid relation types to "semantic" (safest default)
+        if report.invalid_relations:
+            for e in self.edges:
+                if e.relation not in VALID_RELATIONS:
+                    e.relation = "semantic"
+            self._audit("repair", "remapped_invalid_relations", {"count": len(report.invalid_relations)})
+
+        # Remove dangling links
+        if report.dangling_links:
+            for n in self.nodes.values():
+                n.links = [lid for lid in n.links if lid in self.nodes]
+            self._audit("repair", "removed_dangling_links", {"count": len(report.dangling_links)})
+
+        self._rebuild_adj()
+        return report
 
     # --- ID Generation ---
 
