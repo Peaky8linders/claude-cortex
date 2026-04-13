@@ -1,0 +1,54 @@
+name: Validate Knowledge Inbox
+
+on:
+  push:
+    paths:
+      - 'knowledge-inbox/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Install brainiac
+        run: pip install -e .
+
+      - name: Validate inbox files
+        run: |
+          python -c "
+          from brainiac.ingest import parse_frontmatter, VALID_TYPES
+          from pathlib import Path
+          import sys
+
+          inbox = Path('knowledge-inbox')
+          if not inbox.exists():
+              print('No knowledge-inbox directory found')
+              sys.exit(0)
+
+          files = list(inbox.glob('*.md'))
+          if not files:
+              print('No .md files in knowledge-inbox/')
+              sys.exit(0)
+
+          errors = 0
+          for f in files:
+              text = f.read_text(encoding='utf-8')
+              meta, body = parse_frontmatter(text)
+              if not body.strip():
+                  print(f'ERROR: {f.name} has empty body')
+                  errors += 1
+                  continue
+              ntype = meta.get('type', 'memory')
+              if ntype not in VALID_TYPES:
+                  print(f'WARN: {f.name} has unknown type \"{ntype}\", will default to memory')
+              print(f'OK: {f.name} (type={ntype}, body={len(body.strip())} chars)')
+
+          print(f'\nValidated {len(files)} files, {errors} errors')
+          if errors:
+              sys.exit(1)
+          "

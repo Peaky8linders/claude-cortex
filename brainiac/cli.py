@@ -617,6 +617,22 @@ def _dispatch_export(graph, args):
             fmt = arg.split("=")[1]
     cmd_export(graph, fmt)
 
+def _dispatch_ingest(graph, args):
+    from .ingest import cmd_ingest
+    dry_run = "--dry-run" in args
+    cmd_ingest(graph, dry_run=dry_run)
+
+def _dispatch_clusters(graph, args):
+    from .clusters import cmd_clusters
+    min_size = 2
+    threshold = None
+    for arg in args:
+        if arg.startswith("--min-size="):
+            min_size = int(arg.split("=")[1])
+        elif arg.startswith("--threshold="):
+            threshold = float(arg.split("=")[1])
+    cmd_clusters(graph, min_size=min_size, threshold=threshold)
+
 
 COMMANDS = {
     "stats": _dispatch_stats,
@@ -632,6 +648,8 @@ COMMANDS = {
     "migrate": _dispatch_migrate,
     "integrity": _dispatch_integrity,
     "export": _dispatch_export,
+    "ingest": _dispatch_ingest,
+    "clusters": _dispatch_clusters,
 }
 
 
