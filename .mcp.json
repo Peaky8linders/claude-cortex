@@ -2,10 +2,20 @@
   "mcpServers": {
     "cortex-dashboard": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/cortex/dist/mcp/server.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/cortex/dist/mcp/server.js"
+      ],
       "env": {
         "CORTEX_KNOWLEDGE_DIR": "${HOME}/.claude/knowledge"
       }
+    },
+    "code-review-graph": {
+      "command": "uvx",
+      "args": [
+        "code-review-graph",
+        "serve"
+      ],
+      "type": "stdio"
     }
   }
 }
