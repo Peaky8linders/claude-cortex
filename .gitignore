@@ -72,3 +72,9 @@ CLAUDE.local.md
 # TypeScript build output is committed for plugin portability
 # Uncomment to require building from source:
 # cortex/dist/
+# Added by code-review-graph (personal use, not committed)
+.code-review-graph/
+.claude/skills/debug-issue.md
+.claude/skills/explore-codebase.md
+.claude/skills/refactor-safely.md
+.claude/skills/review-changes.md
