@@ -28,6 +28,23 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export CLAUDE_SESSION_TYPE=\"$SESSION_TYPE\"" >> "$CLAUDE_ENV_FILE" 2>/dev/null || true
 fi
 
+# Detect thrashing-prone Claude Code env var combinations.
+# CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set too low forces compaction repeatedly;
+# combined with CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (forces 200K window),
+# a single large tool result can refill past the threshold within a turn,
+# triggering the "Autocompact is thrashing" loop. Default threshold (~95)
+# with the 1M window is the safe baseline.
+THRASH_MSG=""
+PCT="${CLAUDE_AUTOCOMPACT_PCT_OVERRIDE:-}"
+DISABLE_1M="${CLAUDE_CODE_DISABLE_1M_CONTEXT:-}"
+if [ -n "$PCT" ] && [ "$PCT" -lt 90 ] 2>/dev/null; then
+  if [ "$DISABLE_1M" = "1" ]; then
+    THRASH_MSG="[Cortex] Autocompact thrashing risk: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=${PCT} + CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (200K window + low compact threshold). Large tool outputs can refill past ${PCT}% within a turn, looping the compactor. Unset both in ~/.claude/settings.json env block."
+  else
+    THRASH_MSG="[Cortex] Autocompact threshold low: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=${PCT}. Compaction will trigger very often; default (~95) is safer for cache reuse."
+  fi
+fi
+
 # Build graph status message
 if [ -f "$KNOWLEDGE_DIR/graph/nodes.json" ]; then
   # Count nodes and edges via sys.argv to avoid shell injection in Python string
@@ -101,8 +118,11 @@ except Exception: \
     pass" "$TIPS_DB" 2>/dev/null || true)
 fi
 
-# Combine graph status + cache warning + usage tip
+# Combine graph status + thrash warning + cache warning + usage tip
 FULL_MSG="${GRAPH_MSG}"
+if [ -n "$THRASH_MSG" ]; then
+  FULL_MSG="${FULL_MSG}"$'\n'"${THRASH_MSG}"
+fi
 if [ -n "$CACHE_MSG" ]; then
   FULL_MSG="${FULL_MSG}"$'\n'"${CACHE_MSG}"
 fi
